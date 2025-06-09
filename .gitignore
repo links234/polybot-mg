@@ -1,0 +1,52 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Environment files
+.env
+.env.*
+
+# Credentials and sensitive data
+*.key
+*.pem
+*.p12
+creds.json*
+credentials*
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+tarpaulin-report.html
+cobertura.xml
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Market data files (from old implementation)
+*_markets.txt
+available_markets.txt
+
+# Markets data
+markets.json
+all_markets*.json
+*_markets.json
+markets_data/ 
+
+# Rust
+target/
+
+# Data
+data/

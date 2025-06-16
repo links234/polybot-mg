@@ -20,7 +20,7 @@ impl OrdersCommand {
 
     pub async fn execute(&self, host: &str, data_paths: DataPaths) -> Result<()> {
         let client = crate::auth::get_authenticated_client(host, &data_paths).await?;
-        crate::orders::list_orders(client, self.args.token_id.clone()).await?;
+        crate::execution::orders::list_orders(client, self.args.token_id.clone()).await?;
         Ok(())
     }
 } 

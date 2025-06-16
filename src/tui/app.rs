@@ -5,7 +5,7 @@ use rust_decimal::Decimal;
 use std::time::Instant;
 use crate::ws::{PolyEvent, Side};
 use crate::services::Streamer;
-use crate::types::PriceLevel;
+use crate::execution::orderbook::PriceLevel;
 
 #[derive(Debug, Clone)]
 pub struct TokenActivity {

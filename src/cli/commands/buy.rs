@@ -39,7 +39,7 @@ impl BuyCommand {
         }
         
         let mut client = crate::auth::get_authenticated_client(host, &data_paths).await?;
-        crate::orders::place_buy_order(&mut client, &self.args.token_id, self.args.price, self.args.size).await?;
+        crate::execution::orders::place_buy_order(&mut client, &self.args.token_id, self.args.price, self.args.size).await?;
         Ok(())
     }
 } 

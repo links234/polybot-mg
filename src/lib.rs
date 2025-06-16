@@ -6,7 +6,6 @@ pub mod errors;
 pub mod execution;
 pub mod logging;
 pub mod markets;
-pub mod orders;
 pub mod types;
 pub mod ws;
 pub mod services;

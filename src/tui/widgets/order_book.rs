@@ -5,7 +5,7 @@ use ratatui::{
     Frame,
 };
 use rust_decimal::Decimal;
-use crate::types::{PriceLevel, SpreadInfo};
+use crate::execution::orderbook::{PriceLevel, SpreadInfo};
 use crate::tui::App;
 
 #[derive(Debug, Clone)]

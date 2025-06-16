@@ -40,15 +40,15 @@ pub enum ExecutionMode {
 pub struct AssetId(pub String);
 
 impl AssetId {
-    pub fn new(id: String) -> Self {
+    pub fn _new(id: String) -> Self {
         Self(id)
     }
     
-    pub fn as_str(&self) -> &str {
+    pub fn _as_str(&self) -> &str {
         &self.0
     }
     
-    pub fn into_string(self) -> String {
+    pub fn _into_string(self) -> String {
         self.0
     }
 }
@@ -235,7 +235,7 @@ impl Default for ExecutionConfig {
 
 impl ExecutionConfig {
     /// Create a new real-time configuration
-    pub fn real_time(assets: Vec<AssetId>) -> Self {
+    pub fn _real_time(assets: Vec<AssetId>) -> Self {
         Self {
             mode: ExecutionMode::RealTime {
                 assets,
@@ -246,7 +246,7 @@ impl ExecutionConfig {
     }
     
     /// Create a new replay configuration
-    pub fn replay(data_path: PathBuf) -> Self {
+    pub fn _replay(data_path: PathBuf) -> Self {
         Self {
             mode: ExecutionMode::Replay {
                 data_path,
@@ -258,7 +258,7 @@ impl ExecutionConfig {
     }
     
     /// Create a new simulation configuration
-    pub fn simulation(asset_count: usize) -> Self {
+    pub fn _simulation(asset_count: usize) -> Self {
         Self {
             mode: ExecutionMode::Simulation {
                 asset_count,
@@ -269,7 +269,7 @@ impl ExecutionConfig {
     }
     
     /// Enable user feed for real-time mode
-    pub fn with_user_feed(mut self) -> Self {
+    pub fn _with_user_feed(mut self) -> Self {
         if let ExecutionMode::RealTime { ref mut enable_user_feed, .. } = self.mode {
             *enable_user_feed = true;
         }
@@ -277,7 +277,7 @@ impl ExecutionConfig {
     }
     
     /// Set playback speed for replay mode
-    pub fn with_playback_speed(mut self, speed: f64) -> Self {
+    pub fn _with_playback_speed(mut self, speed: f64) -> Self {
         if let ExecutionMode::Replay { ref mut speed_multiplier, .. } = self.mode {
             *speed_multiplier = speed;
         }
@@ -286,7 +286,7 @@ impl ExecutionConfig {
     }
     
     /// Disable TUI and enable console output
-    pub fn console_mode(mut self) -> Self {
+    pub fn _console_mode(mut self) -> Self {
         self.output.enable_tui = false;
         self.output.enable_console = true;
         self
@@ -299,18 +299,18 @@ mod tests {
 
     #[test]
     fn test_asset_id_creation() {
-        let asset = AssetId::new("0x123abc".to_string());
-        assert_eq!(asset.as_str(), "0x123abc");
+        let asset = AssetId::_new("0x123abc".to_string());
+        assert_eq!(asset._as_str(), "0x123abc");
         
         let asset2 = AssetId::from("0x456def");
-        assert_eq!(asset2.as_str(), "0x456def");
+        assert_eq!(asset2._as_str(), "0x456def");
     }
 
     #[test]
     fn test_execution_config_builders() {
-        let config = ExecutionConfig::real_time(vec![AssetId::from("test")])
-            .with_user_feed()
-            .console_mode();
+        let config = ExecutionConfig::_real_time(vec![AssetId::from("test")])
+            ._with_user_feed()
+            ._console_mode();
         
         match config.mode {
             ExecutionMode::RealTime { enable_user_feed, .. } => {

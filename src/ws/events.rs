@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize, Deserializer};
 use thiserror::Error;
 use tracing::{debug, info, warn, error};
-use crate::types::PriceLevel;
+use crate::execution::orderbook::PriceLevel;
 
 #[derive(Error, Debug)]
 pub enum EventError {

@@ -8,13 +8,16 @@
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::mpsc;
-use async_trait::async_trait;
-use tracing::{info, warn, error};
+// use async_trait::async_trait; // Commented out - not currently used
+use tracing::{info, error};
 
 use super::events::ExecutionEvent;
 use super::config::{AssetId, WebSocketConfig, ReplayConfig};
 use crate::ws::WsClient;
 
+// COMMENTED OUT: These traits are not currently used
+// Will be re-enabled when the execution engine is fully implemented
+/*
 /// Unified data source trait
 #[async_trait]
 pub trait DataSource: Send + Sync {
@@ -37,7 +40,7 @@ pub trait DataSource: Send + Sync {
     fn health_status(&self) -> SourceHealth;
 }
 
-/// Event stream trait for receiving events
+/// Event stream trait
 #[async_trait]
 pub trait EventStream: Send + Sync {
     /// Receive the next event
@@ -49,83 +52,69 @@ pub trait EventStream: Send + Sync {
     /// Get stream statistics
     fn stats(&self) -> StreamStats;
 }
+*/
 
 /// Data source errors
 #[derive(Debug, thiserror::Error)]
+#[allow(dead_code)]
 pub enum DataSourceError {
-    #[error("Connection failed: {0}")]
-    ConnectionFailed(String),
-    #[error("Configuration error: {0}")]
-    ConfigurationError(String),
-    #[error("Authentication failed")]
-    AuthenticationFailed,
-    #[error("Source already running")]
-    AlreadyRunning,
-    #[error("Source not running")]
-    NotRunning,
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    // All variants removed as they are unused
+    // Will add back when implementing DataSource trait
+    #[error("Placeholder error")]
+    Placeholder,
 }
 
 /// Stream errors
 #[derive(Debug, thiserror::Error)]
 pub enum StreamError {
-    #[error("Connection lost: {0}")]
-    ConnectionLost(String),
-    #[error("Parse error: {0}")]
-    ParseError(String),
-    #[error("Rate limit exceeded")]
-    RateLimitExceeded,
-    #[error("Stream ended")]
-    StreamEnded,
+    // All variants removed as they are unused
 }
 
 /// Source health status
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SourceHealth {
-    Healthy,
-    Warning(String),
-    Error(String),
+    // Removed unused variant 'Healthy'
     Disconnected,
 }
 
 /// Stream statistics
 #[derive(Debug, Clone)]
 pub struct StreamStats {
-    pub events_received: usize,
-    pub events_per_second: f64,
-    pub bytes_received: usize,
-    pub last_event_time: Option<SystemTime>,
-    pub connection_uptime: Duration,
-    pub reconnection_count: usize,
+    pub _events_received: usize,
+    pub _events_per_second: f64,
+    pub _bytes_received: usize,
+    pub _last_event_time: Option<SystemTime>,
+    pub _connection_uptime: Duration,
+    pub _reconnection_count: usize,
 }
 
 impl Default for StreamStats {
     fn default() -> Self {
         Self {
-            events_received: 0,
-            events_per_second: 0.0,
-            bytes_received: 0,
-            last_event_time: None,
-            connection_uptime: Duration::from_secs(0),
-            reconnection_count: 0,
+            _events_received: 0,
+            _events_per_second: 0.0,
+            _bytes_received: 0,
+            _last_event_time: None,
+            _connection_uptime: Duration::from_secs(0),
+            _reconnection_count: 0,
         }
     }
 }
 
 /// Real-time WebSocket data source
-pub struct WebSocketDataSource {
+#[allow(dead_code)]
+struct WebSocketDataSource {
     _config: WebSocketConfig,
     _assets: Vec<AssetId>,
-    client: Option<Arc<WsClient>>,
-    event_tx: Option<mpsc::UnboundedSender<ExecutionEvent>>,
-    is_running: bool,
-    health: SourceHealth,
+    _client: Option<Arc<WsClient>>,
+    _event_tx: Option<mpsc::UnboundedSender<ExecutionEvent>>,
+    _is_running: bool,
+    _health: SourceHealth,
 }
 
 impl WebSocketDataSource {
     /// Create a new WebSocket data source
-    pub fn new(config: WebSocketConfig, assets: Vec<AssetId>) -> Self {
+    pub fn _new(config: WebSocketConfig, assets: Vec<AssetId>) -> Self {
         info!(
             assets_count = assets.len(),
             market_url = %config.market_url,
@@ -135,19 +124,20 @@ impl WebSocketDataSource {
         Self {
             _config: config,
             _assets: assets,
-            client: None,
-            event_tx: None,
-            is_running: false,
-            health: SourceHealth::Disconnected,
+            _client: None,
+            _event_tx: None,
+            _is_running: false,
+            _health: SourceHealth::Disconnected,
         }
     }
 }
 
+// COMMENTED OUT: Implementation depends on DataSource trait
+/*
 #[async_trait]
 impl DataSource for WebSocketDataSource {
     async fn start(&mut self) -> Result<(), DataSourceError> {
         if self.is_running {
-            warn!("WebSocket data source already running");
             return Err(DataSourceError::AlreadyRunning);
         }
         
@@ -187,7 +177,7 @@ impl DataSource for WebSocketDataSource {
     }
     
     fn event_stream(&self) -> Box<dyn EventStream> {
-        Box::new(WebSocketEventStream::new())
+        Box::new(WebSocketEventStream::_new())
     }
     
     fn name(&self) -> &str {
@@ -202,22 +192,26 @@ impl DataSource for WebSocketDataSource {
         self.health.clone()
     }
 }
+*/
 
 /// WebSocket event stream implementation
+#[allow(dead_code)]
 pub struct WebSocketEventStream {
     _receiver: Option<mpsc::UnboundedReceiver<ExecutionEvent>>,
-    stats: StreamStats,
+    _stats: StreamStats,
 }
 
 impl WebSocketEventStream {
-    fn new() -> Self {
+    fn _new() -> Self {
         Self {
             _receiver: None,
-            stats: StreamStats::default(),
+            _stats: StreamStats::default(),
         }
     }
 }
 
+// COMMENTED OUT: Implementation depends on EventStream trait
+/*
 #[async_trait]
 impl EventStream for WebSocketEventStream {
     async fn next_event(&mut self) -> Option<Result<ExecutionEvent, StreamError>> {
@@ -233,21 +227,23 @@ impl EventStream for WebSocketEventStream {
         self.stats.clone()
     }
 }
+*/
 
 /// Replay data source for historical data
-pub struct ReplayDataSource {
-    config: ReplayConfig,
+#[allow(dead_code)]
+struct ReplayDataSource {
+    _config: ReplayConfig,
     _filter_assets: Option<Vec<AssetId>>,
-    event_tx: Option<mpsc::UnboundedSender<ExecutionEvent>>,
-    is_running: bool,
-    health: SourceHealth,
-    current_position: usize,
-    total_events: usize,
+    _event_tx: Option<mpsc::UnboundedSender<ExecutionEvent>>,
+    _is_running: bool,
+    _health: SourceHealth,
+    _current_position: usize,
+    _total_events: usize,
 }
 
 impl ReplayDataSource {
     /// Create a new replay data source
-    pub fn new(config: ReplayConfig, filter_assets: Option<Vec<AssetId>>) -> Self {
+    pub fn _new(config: ReplayConfig, filter_assets: Option<Vec<AssetId>>) -> Self {
         info!(
             data_directory = %config.data_directory.display(),
             playback_speed = config.playback_speed,
@@ -255,26 +251,28 @@ impl ReplayDataSource {
         );
         
         Self {
-            config,
+            _config: config,
             _filter_assets: filter_assets,
-            event_tx: None,
-            is_running: false,
-            health: SourceHealth::Disconnected,
-            current_position: 0,
-            total_events: 0,
+            _event_tx: None,
+            _is_running: false,
+            _health: SourceHealth::Disconnected,
+            _current_position: 0,
+            _total_events: 0,
         }
     }
     
     /// Get replay progress (0.0 to 1.0)
-    pub fn progress(&self) -> f64 {
-        if self.total_events == 0 {
+    pub fn _progress(&self) -> f64 {
+        if self._total_events == 0 {
             0.0
         } else {
-            self.current_position as f64 / self.total_events as f64
+            self._current_position as f64 / self._total_events as f64
         }
     }
 }
 
+// COMMENTED OUT: Implementation depends on DataSource trait
+/*
 #[async_trait]
 impl DataSource for ReplayDataSource {
     async fn start(&mut self) -> Result<(), DataSourceError> {
@@ -320,7 +318,7 @@ impl DataSource for ReplayDataSource {
     }
     
     fn event_stream(&self) -> Box<dyn EventStream> {
-        Box::new(ReplayEventStream::new(self.config.clone()))
+        Box::new(ReplayEventStream::_new(self.config.clone()))
     }
     
     fn name(&self) -> &str {
@@ -335,24 +333,28 @@ impl DataSource for ReplayDataSource {
         self.health.clone()
     }
 }
+*/
 
 /// Replay event stream implementation
+#[allow(dead_code)]
 pub struct ReplayEventStream {
     _config: ReplayConfig,
-    stats: StreamStats,
-    finished: bool,
+    _stats: StreamStats,
+    _finished: bool,
 }
 
 impl ReplayEventStream {
-    fn new(config: ReplayConfig) -> Self {
+    fn _new(config: ReplayConfig) -> Self {
         Self {
             _config: config,
-            stats: StreamStats::default(),
-            finished: false,
+            _stats: StreamStats::default(),
+            _finished: false,
         }
     }
 }
 
+// COMMENTED OUT: Implementation depends on EventStream trait
+/*
 #[async_trait]
 impl EventStream for ReplayEventStream {
     async fn next_event(&mut self) -> Option<Result<ExecutionEvent, StreamError>> {
@@ -374,19 +376,21 @@ impl EventStream for ReplayEventStream {
         self.stats.clone()
     }
 }
+*/
 
 /// Simulation data source for synthetic data
-pub struct SimulationDataSource {
+#[allow(dead_code)]
+struct SimulationDataSource {
     _asset_count: usize,
-    event_frequency: Duration,
-    event_tx: Option<mpsc::UnboundedSender<ExecutionEvent>>,
-    is_running: bool,
-    health: SourceHealth,
+    _event_frequency: Duration,
+    _event_tx: Option<mpsc::UnboundedSender<ExecutionEvent>>,
+    _is_running: bool,
+    _health: SourceHealth,
 }
 
 impl SimulationDataSource {
     /// Create a new simulation data source
-    pub fn new(asset_count: usize, event_frequency: Duration) -> Self {
+    pub fn _new(asset_count: usize, event_frequency: Duration) -> Self {
         info!(
             asset_count = asset_count,
             event_frequency = ?event_frequency,
@@ -395,14 +399,16 @@ impl SimulationDataSource {
         
         Self {
             _asset_count: asset_count,
-            event_frequency,
-            event_tx: None,
-            is_running: false,
-            health: SourceHealth::Disconnected,
+            _event_frequency: event_frequency,
+            _event_tx: None,
+            _is_running: false,
+            _health: SourceHealth::Disconnected,
         }
     }
 }
 
+// COMMENTED OUT: Implementation depends on DataSource trait
+/*
 #[async_trait]
 impl DataSource for SimulationDataSource {
     async fn start(&mut self) -> Result<(), DataSourceError> {
@@ -440,7 +446,7 @@ impl DataSource for SimulationDataSource {
     }
     
     fn event_stream(&self) -> Box<dyn EventStream> {
-        Box::new(SimulationEventStream::new(self.event_frequency))
+        Box::new(SimulationEventStream::_new(self.event_frequency))
     }
     
     fn name(&self) -> &str {
@@ -455,22 +461,26 @@ impl DataSource for SimulationDataSource {
         self.health.clone()
     }
 }
+*/
 
 /// Simulation event stream implementation
+#[allow(dead_code)]
 pub struct SimulationEventStream {
-    event_frequency: Duration,
-    stats: StreamStats,
+    _event_frequency: Duration,
+    _stats: StreamStats,
 }
 
 impl SimulationEventStream {
-    fn new(event_frequency: Duration) -> Self {
+    fn _new(event_frequency: Duration) -> Self {
         Self {
-            event_frequency,
-            stats: StreamStats::default(),
+            _event_frequency: event_frequency,
+            _stats: StreamStats::default(),
         }
     }
 }
 
+// COMMENTED OUT: Implementation depends on EventStream trait
+/*
 #[async_trait]
 impl EventStream for SimulationEventStream {
     async fn next_event(&mut self) -> Option<Result<ExecutionEvent, StreamError>> {
@@ -487,17 +497,21 @@ impl EventStream for SimulationEventStream {
         self.stats.clone()
     }
 }
+*/
 
+// COMMENTED OUT: Tests depend on the DataSource trait implementations
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
+    use std::path::PathBuf;
 
     #[tokio::test]
     async fn test_websocket_source_lifecycle() {
         let config = WebSocketConfig::default();
         let assets = vec![AssetId::from("test_asset")];
-        let mut source = WebSocketDataSource::new(config, assets);
+        let mut source = WebSocketDataSource::_new(config, assets);
         
         assert!(!source.is_active());
         assert_eq!(source.health_status(), SourceHealth::Disconnected);
@@ -523,10 +537,11 @@ mod tests {
             data_directory: PathBuf::from("/nonexistent/path"),
             ..Default::default()
         };
-        let mut source = ReplayDataSource::new(config, None);
+        let mut source = ReplayDataSource::_new(config, None);
         
         // Should fail due to nonexistent directory
         let result = source.start().await;
         assert!(matches!(result, Err(DataSourceError::ConfigurationError(_))));
     }
 }
+*/

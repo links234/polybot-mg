@@ -1,7 +1,7 @@
 //! Order book state management with hash verification
 
 use crate::ws::events::Side;
-use crate::types::PriceLevel;
+use crate::execution::orderbook::PriceLevel;
 use blake3::Hasher;
 use rust_decimal::Decimal;
 use std::collections::BTreeMap;

@@ -5,6 +5,8 @@
 //! - Replay of historical data from files
 //! - Event processing and state management
 //! - Multiple execution modes and strategies
+//! - Order management and execution
+//! - Orderbook representation and manipulation
 //!
 //! See README.md for detailed architecture documentation.
 
@@ -13,10 +15,7 @@ pub mod sources;
 pub mod events;
 pub mod strategies;
 pub mod config;
+pub mod orderbook;
+pub mod orders;
 
-pub use engine::ExecutionEngine;
-pub use config::ExecutionMode;
-pub use sources::{DataSource, EventStream};
-pub use events::{ExecutionEvent, EventHandler};
-pub use strategies::{Strategy, StrategyConfig};
-pub use config::ExecutionConfig;
+// Note: AssetOrderBook is imported directly from orderbook module where needed

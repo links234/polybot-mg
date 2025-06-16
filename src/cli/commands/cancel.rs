@@ -30,7 +30,7 @@ impl CancelCommand {
         }
         
         let mut client = crate::auth::get_authenticated_client(host, &data_paths).await?;
-        crate::orders::cancel_order(&mut client, &self.args.order_id).await?;
+        crate::execution::orders::cancel_order(&mut client, &self.args.order_id).await?;
         Ok(())
     }
 } 

@@ -2,7 +2,7 @@
 
 use crate::auth::get_authenticated_client;
 use crate::data_paths::DataPaths;
-use crate::types::{AssetOrderBook, PriceLevel};
+use crate::execution::orderbook::{AssetOrderBook, PriceLevel};
 use crate::ws::{
     client::{WsClient, WsConfig},
     events::{parse_message, AuthPayload, EventError, PolyEvent, WsMessage},

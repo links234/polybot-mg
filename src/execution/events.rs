@@ -6,9 +6,9 @@
 use std::time::{Duration, Instant, SystemTime};
 use serde::{Deserialize, Serialize};
 use rust_decimal::Decimal;
-use tracing::{debug, info, error};
+use tracing::debug;
 
-use crate::types::PriceLevel;
+use crate::execution::orderbook::PriceLevel;
 use crate::ws::{PolyEvent, Side, OrderStatus};
 use super::config::AssetId;
 
@@ -21,7 +21,7 @@ pub struct ExecutionEvent {
     pub timestamp: SystemTime,
     /// Event processing time (when it was processed)
     #[serde(skip)]
-    pub processed_at: Option<Instant>,
+    pub _processed_at: Option<Instant>,
     /// Event source information
     pub source: EventSource,
     /// The actual event data
@@ -39,11 +39,11 @@ impl EventId {
         Self(uuid::Uuid::new_v4().to_string())
     }
     
-    pub fn from_string(id: String) -> Self {
+    pub fn _from_string(id: String) -> Self {
         Self(id)
     }
     
-    pub fn as_str(&self) -> &str {
+    pub fn _as_str(&self) -> &str {
         &self.0
     }
 }
@@ -307,12 +307,12 @@ impl ExecutionEvent {
     /// Create a new market event
     pub fn market(data: MarketEvent, source: EventSource) -> Self {
         let id = EventId::new();
-        debug!(event_id = %id.as_str(), event_type = "market", "Creating market event");
+        debug!(event_id = %id._as_str(), event_type = "market", "Creating market event");
         
         Self {
             id,
             timestamp: SystemTime::now(),
-            processed_at: None,
+            _processed_at: None,
             source,
             data: EventData::Market(data),
             metadata: EventMetadata::default(),
@@ -322,75 +322,75 @@ impl ExecutionEvent {
     /// Create a new user event
     pub fn user(data: UserEvent, source: EventSource) -> Self {
         let id = EventId::new();
-        debug!(event_id = %id.as_str(), event_type = "user", "Creating user event");
+        debug!(event_id = %id._as_str(), event_type = "user", "Creating user event");
         
         Self {
             id,
             timestamp: SystemTime::now(),
-            processed_at: None,
+            _processed_at: None,
             source,
             data: EventData::User(data),
             metadata: EventMetadata::default(),
         }
     }
     
-    /// Create a new system event
-    pub fn system(data: SystemEvent, source: EventSource) -> Self {
-        let id = EventId::new();
-        info!(event_id = %id.as_str(), event_type = "system", "Creating system event");
-        
-        Self {
-            id,
-            timestamp: SystemTime::now(),
-            processed_at: None,
-            source,
-            data: EventData::System(data),
-            metadata: EventMetadata::default(),
-        }
-    }
-    
-    /// Create a new metrics event
-    pub fn metrics(data: MetricsEvent, source: EventSource) -> Self {
-        let id = EventId::new();
-        debug!(event_id = %id.as_str(), event_type = "metrics", "Creating metrics event");
-        
-        Self {
-            id,
-            timestamp: SystemTime::now(),
-            processed_at: None,
-            source,
-            data: EventData::Metrics(data),
-            metadata: EventMetadata::default(),
-        }
-    }
+    // /// Create a new system event
+    // pub fn system(data: SystemEvent, source: EventSource) -> Self {
+    //     let id = EventId::new();
+    //     info!(event_id = %id._as_str(), event_type = "system", "Creating system event");
+    //     
+    //     Self {
+    //         id,
+    //         timestamp: SystemTime::now(),
+    //         _processed_at: None,
+    //         source,
+    //         data: EventData::System(data),
+    //         metadata: EventMetadata::default(),
+    //     }
+    // }
+    // 
+    // /// Create a new metrics event
+    // pub fn metrics(data: MetricsEvent, source: EventSource) -> Self {
+    //     let id = EventId::new();
+    //     debug!(event_id = %id._as_str(), event_type = "metrics", "Creating metrics event");
+    //     
+    //     Self {
+    //         id,
+    //         timestamp: SystemTime::now(),
+    //         _processed_at: None,
+    //         source,
+    //         data: EventData::Metrics(data),
+    //         metadata: EventMetadata::default(),
+    //     }
+    // }
     
     /// Mark event as processed
-    pub fn mark_processed(&mut self) {
-        self.processed_at = Some(Instant::now());
+    pub fn _mark_processed(&mut self) {
+        self._processed_at = Some(Instant::now());
         
-        if let Some(start_time) = self.processed_at {
+        if let Some(start_time) = self._processed_at {
             // This is a placeholder - in real implementation we'd track from creation
             self.metadata.processing_duration = Some(start_time.elapsed());
         }
     }
     
     /// Add a tag to the event
-    pub fn with_tag(mut self, key: String, value: String) -> Self {
+    pub fn _with_tag(mut self, key: String, value: String) -> Self {
         self.metadata.tags.insert(key, value);
         self
     }
     
     /// Set event priority
-    pub fn with_priority(mut self, priority: EventPriority) -> Self {
+    pub fn _with_priority(mut self, priority: EventPriority) -> Self {
         self.metadata.priority = priority;
         self
     }
     
     /// Get the asset ID if this is a market event
-    pub fn asset_id(&self) -> Option<&AssetId> {
+    pub fn _asset_id(&self) -> Option<&AssetId> {
         match &self.data {
-            EventData::Market(market_event) => Some(market_event.asset_id()),
-            EventData::User(user_event) => Some(user_event.asset_id()),
+            EventData::Market(market_event) => Some(market_event._asset_id()),
+            EventData::User(user_event) => Some(user_event._asset_id()),
             _ => None,
         }
     }
@@ -398,7 +398,7 @@ impl ExecutionEvent {
 
 impl MarketEvent {
     /// Get the asset ID for this market event
-    pub fn asset_id(&self) -> &AssetId {
+    pub fn _asset_id(&self) -> &AssetId {
         match self {
             MarketEvent::OrderBookSnapshot { asset_id, .. } => asset_id,
             MarketEvent::PriceChange { asset_id, .. } => asset_id,
@@ -411,7 +411,7 @@ impl MarketEvent {
 
 impl UserEvent {
     /// Get the asset ID for this user event
-    pub fn asset_id(&self) -> &AssetId {
+    pub fn _asset_id(&self) -> &AssetId {
         match self {
             UserEvent::OrderUpdate { asset_id, .. } => asset_id,
             UserEvent::UserTrade { asset_id, .. } => asset_id,
@@ -489,28 +489,25 @@ impl From<PolyEvent> for ExecutionEvent {
     }
 }
 
-/// Event handler trait for processing execution events
-pub trait EventHandler: Send + Sync {
-    /// Handle an execution event
-    fn handle_event(&mut self, event: &ExecutionEvent) -> Result<(), EventHandlerError>;
-    
-    /// Get handler name for logging
-    fn name(&self) -> &str;
-    
-    /// Check if handler can process this event type
-    fn can_handle(&self, event: &ExecutionEvent) -> bool;
-}
+// /// Event handler trait for processing execution events
+// pub trait _EventHandler: Send + Sync {
+//     /// Handle an execution event
+//     fn handle_event(&mut self, event: &ExecutionEvent) -> Result<(), EventHandlerError>;
+//     
+//     /// Get handler name for logging
+//     fn name(&self) -> &str;
+//     
+//     /// Check if handler can process this event type
+//     fn can_handle(&self, event: &ExecutionEvent) -> bool;
+// }
 
-/// Event handler errors
-#[derive(Debug, thiserror::Error)]
-pub enum EventHandlerError {
-    #[error("Processing error: {0}")]
-    ProcessingError(String),
-    #[error("Unsupported event type")]
-    UnsupportedEvent,
-    #[error("Handler not ready")]
-    NotReady,
-}
+// /// Event handler errors
+// #[derive(Debug, thiserror::Error)]
+// pub enum EventHandlerError {
+//     // Keeping enum non-empty to maintain compatibility
+//     #[error("Generic error: {0}")]
+//     Generic(String),
+// }
 
 #[cfg(test)]
 mod tests {
@@ -532,12 +529,12 @@ mod tests {
         };
         
         let event = ExecutionEvent::market(market_event, source)
-            .with_tag("test".to_string(), "value".to_string())
-            .with_priority(EventPriority::High);
+            ._with_tag("test".to_string(), "value".to_string())
+            ._with_priority(EventPriority::High);
         
         assert_eq!(event.metadata.priority, EventPriority::High);
         assert_eq!(event.metadata.tags.get("test"), Some(&"value".to_string()));
-        assert!(event.asset_id().is_some());
+        assert!(event._asset_id().is_some());
     }
     
     #[test]

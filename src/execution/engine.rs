@@ -4,85 +4,79 @@
 //! managing the lifecycle of data sources, event streams, and strategy execution.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, RwLock, broadcast};
-use tokio::time::interval;
-use tracing::{info, warn, error};
+// use tracing::error;
 
-use super::config::{ExecutionConfig, AssetId};
-use super::events::{ExecutionEvent, SystemEvent, MetricsEvent, EventSource, StopReason, OrderBookMetrics, MemoryMetrics};
-use super::sources::{DataSource, WebSocketDataSource, ReplayDataSource, SimulationDataSource, SourceHealth};
-use super::strategies::{Strategy, StrategyError, StrategyMetrics, MarketAnalysisStrategy, LoggingStrategy, StrategyConfig};
-use crate::ws::OrderBook;
+use super::events::{OrderBookMetrics, MemoryMetrics};
+use super::sources::SourceHealth;
+use super::strategies::StrategyMetrics;
 
-/// Main execution engine
-pub struct ExecutionEngine {
-    /// Engine configuration
-    config: ExecutionConfig,
-    /// Data source providing events
-    data_source: Option<Box<dyn DataSource>>,
-    /// Registered strategies
-    strategies: Vec<Box<dyn Strategy>>,
-    /// Order book state
-    order_books: Arc<RwLock<HashMap<AssetId, OrderBook>>>,
-    /// Event broadcaster for external consumers
-    event_tx: broadcast::Sender<ExecutionEvent>,
-    /// Engine state
-    state: EngineState,
-    /// Engine metrics
-    metrics: EngineMetrics,
-    /// Shutdown signal
-    shutdown_tx: Option<mpsc::Sender<()>>,
-}
+// /// Main execution engine
+// pub struct _ExecutionEngine {
+//     /// Engine configuration
+//     config: ExecutionConfig,
+//     /// Data source providing events
+//     data_source: Option<Box<dyn DataSource>>,
+//     /// Registered strategies
+//     strategies: Vec<Box<dyn Strategy>>,
+//     /// Order book state
+//     order_books: Arc<RwLock<HashMap<AssetId, OrderBook>>>,
+//     /// Event broadcaster for external consumers
+//     event_tx: broadcast::Sender<ExecutionEvent>,
+//     /// Engine state
+//     state: EngineState,
+//     /// Engine metrics
+//     metrics: EngineMetrics,
+//     /// Shutdown signal
+//     shutdown_tx: Option<mpsc::Sender<()>>,
+// }
 
-/// Execution engine state
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineState {
-    Stopped,
-    Starting,
-    Running,
-    Stopping,
-    Error(String),
-}
+// /// Execution engine state
+// #[derive(Debug, Clone, PartialEq, Eq)]
+// pub enum EngineState {
+//     Stopped,
+//     Starting,
+//     Running,
+//     Stopping,
+// }
 
 /// Engine execution metrics
 #[derive(Debug, Clone)]
 pub struct EngineMetrics {
     /// Total events processed
-    pub total_events: usize,
+    pub _total_events: usize,
     /// Events processed per second
-    pub events_per_second: f64,
+    pub _events_per_second: f64,
     /// Engine uptime
-    pub uptime: Duration,
+    pub _uptime: Duration,
     /// Start time
-    pub start_time: Option<Instant>,
+    pub _start_time: Option<Instant>,
     /// Data source health
-    pub source_health: SourceHealth,
+    pub _source_health: SourceHealth,
     /// Strategy metrics
-    pub strategy_metrics: HashMap<String, StrategyMetrics>,
+    pub _strategy_metrics: HashMap<String, StrategyMetrics>,
     /// Order book metrics
-    pub orderbook_metrics: OrderBookMetrics,
+    pub _orderbook_metrics: OrderBookMetrics,
     /// Memory metrics
-    pub memory_metrics: MemoryMetrics,
+    pub _memory_metrics: MemoryMetrics,
 }
 
 impl Default for EngineMetrics {
     fn default() -> Self {
         Self {
-            total_events: 0,
-            events_per_second: 0.0,
-            uptime: Duration::from_secs(0),
-            start_time: None,
-            source_health: SourceHealth::Disconnected,
-            strategy_metrics: HashMap::new(),
-            orderbook_metrics: OrderBookMetrics {
+            _total_events: 0,
+            _events_per_second: 0.0,
+            _uptime: Duration::from_secs(0),
+            _start_time: None,
+            _source_health: SourceHealth::Disconnected,
+            _strategy_metrics: HashMap::new(),
+            _orderbook_metrics: OrderBookMetrics {
                 active_books: 0,
                 average_spread: None,
                 crossed_markets: 0,
                 total_liquidity: rust_decimal::Decimal::ZERO,
             },
-            memory_metrics: MemoryMetrics {
+            _memory_metrics: MemoryMetrics {
                 heap_bytes: 0,
                 orderbook_bytes: 0,
                 buffer_bytes: 0,
@@ -92,6 +86,7 @@ impl Default for EngineMetrics {
 }
 
 
+/*
 impl ExecutionEngine {
     /// Create a new execution engine
     pub fn new(config: ExecutionConfig) -> Self {
@@ -414,24 +409,20 @@ impl ExecutionEngine {
         info!("Metrics collection loop finished");
     }
 }
+*/
 
-/// Execution engine errors
-#[derive(Debug, thiserror::Error)]
-pub enum ExecutionError {
-    #[error("Invalid engine state: {0}")]
-    InvalidState(String),
-    #[error("Configuration error: {0}")]
-    ConfigurationError(String),
-    #[error("Data source error: {0}")]
-    DataSourceError(#[from] super::sources::DataSourceError),
-    #[error("Strategy error: {0}")]
-    StrategyError(#[from] StrategyError),
-    #[error("Event processing error: {0}")]
-    EventProcessingError(String),
-    #[error("Resource error: {0}")]
-    ResourceError(String),
-}
+// /// Execution engine errors
+// #[derive(Debug, thiserror::Error)]
+// pub enum ExecutionError {
+//     #[error("Invalid engine state: {0}")]
+//     InvalidState(String),
+//     #[error("Data source error: {0}")]
+//     DataSourceError(#[from] super::sources::DataSourceError),
+//     #[error("Strategy error: {0}")]
+//     StrategyError(#[from] StrategyError),
+// }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -480,3 +471,4 @@ mod tests {
         assert!(engine.stop().await.is_ok());
     }
 }
+*/

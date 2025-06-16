@@ -1,0 +1,43 @@
+name: "Fetch Raw Markets Data"
+description: "Fetch and cache all raw markets data for use by other pipelines"
+
+parameters:
+  # Shared dataset name that all pipelines will use
+  dataset_name: "raw_markets/${date}"
+  # Cache settings
+  cache_resolution: "hours"
+  cache_duration: "6"  # Cache for 6 hours
+  force_refresh: ""
+  # Processing settings
+  chunk_size_mb: "100"  # Larger chunks for initial fetch
+
+steps:
+  - name: "Fetch all markets from CLOB API"
+    command: "fetch-all-markets"
+    args:
+      - "--dataset-name"
+      - "${dataset_name}"
+      - "--chunk-size-mb"
+      - "${chunk_size_mb}"
+      - "--cache-resolution"
+      - "${cache_resolution}"
+      - "--cache-duration"
+      - "${cache_duration}"
+      - "--verbose"
+    continue_on_error: false
+    env:
+      PIPELINE_TYPE: "raw_fetch"
+      CACHE_ENABLED: "true"
+      FORCE_REFRESH: "${force_refresh}"
+
+  - name: "Generate summary statistics"
+    command: "analyze"
+    args:
+      - "raw_markets_summary_${datetime}"
+      - "--source-dataset"
+      - "${dataset_name}"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      ANALYSIS_TYPE: "basic_stats" 

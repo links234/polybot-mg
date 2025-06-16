@@ -1,0 +1,69 @@
+name: "Bitcoin Markets Pipeline"
+description: "Filter Bitcoin-related markets from shared raw market data with intelligent caching"
+
+parameters:
+  # Shared raw markets dataset (cached and reused across all pipelines)
+  raw_dataset_name: "raw_markets/${date}"
+  # Output dataset name for Bitcoin markets
+  output_dataset_name: "bitcoin_markets/${date}/${datetime}"
+  # Cache settings for raw data
+  cache_resolution: "hours"
+  cache_duration: "6"  # Raw data cached for 6 hours
+  force_refresh: ""
+  # Price range for active trading (exclude extreme prices)
+  min_price: "1"   # 1% minimum
+  max_price: "99"  # 99% maximum
+  # Chunk size for data processing
+  chunk_size_mb: "50"
+
+steps:
+  - name: "Fetch/reuse shared raw markets data"
+    command: "fetch-all-markets"
+    args: 
+      - "--dataset-name"
+      - "${raw_dataset_name}"
+      - "--verbose"
+      - "--chunk-size-mb"
+      - "${chunk_size_mb}"
+      - "--cache-resolution"
+      - "${cache_resolution}"
+      - "--cache-duration"
+      - "${cache_duration}"
+    continue_on_error: false
+    env:
+      PIPELINE_STEP: "fetch_raw"
+      CACHE_ENABLED: "true"
+      FORCE_REFRESH: "${force_refresh}"
+
+  - name: "Filter for Bitcoin markets"
+    command: "analyze"
+    args:
+      - "${output_dataset_name}"
+      - "--source-dataset"
+      - "${raw_dataset_name}"
+      - "--active-only"
+      - "--accepting-orders-only"
+      - "--no-archived"
+      - "--min-price"
+      - "${min_price}"
+      - "--max-price"
+      - "${max_price}"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: false
+    env:
+      FILTER_TYPE: "bitcoin_markets"
+      FILTER_KEYWORDS: "bitcoin,btc,crypto,satoshi"  # For future keyword filtering
+
+  - name: "Generate Bitcoin markets report"
+    command: "analyze"
+    args:
+      - "bitcoin_report/${date}/${datetime}"
+      - "--source-dataset"
+      - "${output_dataset_name}"
+      - "--detailed"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      ANALYSIS_TYPE: "bitcoin_summary" 

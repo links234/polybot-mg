@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Args;
 use crate::data_paths::DataPaths;
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct BookArgs {
     /// Token ID
     pub token_id: String,
@@ -12,8 +12,18 @@ pub struct BookArgs {
     pub depth: usize,
 }
 
-pub async fn execute(host: &str, data_paths: DataPaths, args: BookArgs) -> Result<()> {
-    let client = crate::auth::get_authenticated_client(host, &data_paths).await?;
-    crate::markets::show_orderbook(client, &args.token_id, args.depth).await?;
-    Ok(())
+pub struct BookCommand {
+    args: BookArgs,
+}
+
+impl BookCommand {
+    pub fn new(args: BookArgs) -> Self {
+        Self { args }
+    }
+
+    pub async fn execute(&self, host: &str, data_paths: DataPaths) -> Result<()> {
+        let client = crate::auth::get_authenticated_client(host, &data_paths).await?;
+        crate::markets::show_orderbook(client, &self.args.token_id, self.args.depth).await?;
+        Ok(())
+    }
 } 

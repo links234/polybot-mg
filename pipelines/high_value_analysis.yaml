@@ -1,0 +1,100 @@
+name: "High Value Markets Analysis"
+description: "Deep analysis of high-value markets using shared raw data with enrichment"
+
+parameters:
+  # Shared raw markets dataset
+  raw_dataset_name: "raw_markets/${date}"
+  # Output dataset names
+  high_value_dataset: "high_value_markets/${date}/${datetime}"
+  enriched_dataset: "high_value_enriched/${date}/${datetime}"
+  # Cache settings for raw data
+  cache_resolution: "hours"
+  cache_duration: "6"
+  force_refresh: ""
+  # High-value thresholds
+  min_volume: "10000"  # $10,000
+  min_price: "5"
+  max_price: "95"
+  chunk_size_mb: "50"
+
+steps:
+  - name: "Fetch/reuse shared raw markets data"
+    command: "fetch-all-markets"
+    args:
+      - "--dataset-name"
+      - "${raw_dataset_name}"
+      - "--chunk-size-mb"
+      - "${chunk_size_mb}"
+      - "--cache-resolution"
+      - "${cache_resolution}"
+      - "--cache-duration"
+      - "${cache_duration}"
+      - "--verbose"
+    env:
+      CACHE_ENABLED: "true"
+      FORCE_REFRESH: "${force_refresh}"
+
+  - name: "Filter high-value markets"
+    command: "analyze"
+    args:
+      - "${high_value_dataset}"
+      - "--source-dataset"
+      - "${raw_dataset_name}"
+      - "--active-only"
+      - "--accepting-orders-only"
+      - "--no-archived"
+      - "--min-volume-usd"
+      - "${min_volume}"
+      - "--min-price"
+      - "${min_price}"
+      - "--max-price"
+      - "${max_price}"
+      - "--detailed"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: false
+    env:
+      FILTER_TYPE: "high_value"
+
+  - name: "Enrich with real-time data"
+    command: "enrich"
+    args:
+      - "${enriched_dataset}"
+      - "--source-dataset"
+      - "${high_value_dataset}"
+      - "--fetch-orderbook"
+      - "--fetch-trades"
+      - "--max-markets"
+      - "50"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      ENRICHMENT_TYPE: "orderbook_trades"
+
+  - name: "Generate trading signals"
+    command: "analyze"
+    args:
+      - "trading_signals/${date}/${datetime}"
+      - "--source-dataset"
+      - "${enriched_dataset}"
+      - "--find-arbitrage"
+      - "--detect-momentum"
+      - "--volume-analysis"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      ANALYSIS_TYPE: "trading_signals"
+
+  - name: "Create high-value report"
+    command: "analyze"
+    args:
+      - "high_value_report/${date}/${datetime}"
+      - "--source-dataset"
+      - "${enriched_dataset}"
+      - "--detailed"
+      - "--summary"
+      - "--generate-html"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      REPORT_TYPE: "high_value" 

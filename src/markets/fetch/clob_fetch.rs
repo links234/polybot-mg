@@ -5,7 +5,7 @@ use polymarket_rs_client::ClobClient;
 use crate::markets::{
     storage::MarketStorage,
     providers::ClobProvider,
-    fetcher::MarketFetcher,
+    fetcher::{MarketFetcher, FetcherConfig},
     types::FetchState,
 };
 
@@ -38,7 +38,16 @@ pub async fn fetch_all_markets(
     let provider = ClobProvider::new(client);
     
     // Create fetcher
-    let mut fetcher = MarketFetcher::new(provider, storage, verbose);
+    // Create fetcher with verbose config
+    let config = if verbose {
+        FetcherConfig {
+            verbose: true,
+            ..Default::default()
+        }
+    } else {
+        Default::default()
+    };
+    let mut fetcher = MarketFetcher::with_config(provider, storage, config);
     
     // Fetch all markets
     fetcher.fetch_all::<FetchState>("fetch_state.json", "markets").await?;

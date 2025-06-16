@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Args, ValueEnum};
-use owo_colors::OwoColorize;
+use tracing::{info, error};
 use crate::data_paths::DataPaths;
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -19,7 +19,7 @@ pub enum MarketMode {
     Url,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct MarketsArgs {
     /// Search term, market ID, or Polymarket URL (optional)
     pub query: Option<String>,
@@ -61,66 +61,76 @@ pub struct MarketsArgs {
     pub max_spread: Option<f64>,
 }
 
-pub async fn execute(host: &str, data_paths: DataPaths, args: MarketsArgs) -> Result<()> {
-    let client = crate::auth::get_authenticated_client(host, &data_paths).await?;
-    
-    match args.mode {
-        MarketMode::List => {
-            // Basic list with optional filter
-            crate::markets::list_markets(client, args.query, args.limit).await?;
-        }
-        MarketMode::Volume => {
-            // Volume-sorted markets with cache
-            crate::markets::list_filtered_markets(
-                client, 
-                args.limit, 
-                args.refresh, 
-                args.min_volume, 
-                args.detailed, 
-                args.min_price, 
-                args.max_price
-            ).await?;
-        }
-        MarketMode::Active => {
-            // Actively traded markets with orderbook data
-            crate::markets::list_active_markets(
-                client, 
-                args.limit, 
-                args.min_price, 
-                args.max_price, 
-                args.min_spread, 
-                args.max_spread, 
-                args.detailed
-            ).await?;
-        }
-        MarketMode::Search => {
-            // Search by keyword
-            if let Some(keyword) = args.query {
-                crate::markets::search_markets(client, &keyword, args.detailed, args.limit).await?;
-            } else {
-                println!("{}", "❌ Search mode requires a query term".bright_red());
-                println!("{}", "Usage: polybot markets <search_term> --mode search".bright_cyan());
-            }
-        }
-        MarketMode::Details => {
-            // Get specific market details
-            if let Some(identifier) = args.query {
-                crate::markets::get_market_details(client, &identifier).await?;
-            } else {
-                println!("{}", "❌ Details mode requires a market identifier".bright_red());
-                println!("{}", "Usage: polybot markets <condition_id_or_slug> --mode details".bright_cyan());
-            }
-        }
-        MarketMode::Url => {
-            // Get market from URL
-            if let Some(url) = args.query {
-                crate::markets::get_market_from_url(&url).await?;
-            } else {
-                println!("{}", "❌ URL mode requires a Polymarket URL".bright_red());
-                println!("{}", "Usage: polybot markets <polymarket_url> --mode url".bright_cyan());
-            }
-        }
+pub struct MarketsCommand {
+    args: MarketsArgs,
+}
+
+impl MarketsCommand {
+    pub fn new(args: MarketsArgs) -> Self {
+        Self { args }
     }
-    
-    Ok(())
+
+    pub async fn execute(&self, host: &str, data_paths: DataPaths) -> Result<()> {
+        let client = crate::auth::get_authenticated_client(host, &data_paths).await?;
+        
+        match self.args.mode {
+            MarketMode::List => {
+                // Basic list with optional filter
+                crate::markets::list_markets(client, self.args.query.clone(), self.args.limit).await?;
+            }
+            MarketMode::Volume => {
+                // Volume-sorted markets with cache
+                crate::markets::list_filtered_markets(
+                    client, 
+                    self.args.limit, 
+                    self.args.refresh, 
+                    self.args.min_volume, 
+                    self.args.detailed, 
+                    self.args.min_price, 
+                    self.args.max_price
+                ).await?;
+            }
+            MarketMode::Active => {
+                // Actively traded markets with orderbook data
+                crate::markets::list_active_markets(
+                    client, 
+                    self.args.limit, 
+                    self.args.min_price, 
+                    self.args.max_price, 
+                    self.args.min_spread, 
+                    self.args.max_spread, 
+                    self.args.detailed
+                ).await?;
+            }
+            MarketMode::Search => {
+                // Search by keyword
+                if let Some(keyword) = &self.args.query {
+                    crate::markets::search_markets(client, keyword, self.args.detailed, self.args.limit).await?;
+                } else {
+                    error!("❌ Search mode requires a query term");
+                    info!("Usage: polybot markets <search_term> --mode search");
+                }
+            }
+            MarketMode::Details => {
+                // Get specific market details
+                if let Some(identifier) = &self.args.query {
+                    crate::markets::get_market_details(client, identifier).await?;
+                } else {
+                    error!("❌ Details mode requires a market identifier");
+                    info!("Usage: polybot markets <condition_id_or_slug> --mode details");
+                }
+            }
+            MarketMode::Url => {
+                // Get market from URL
+                if let Some(url) = &self.args.query {
+                    crate::markets::get_market_from_url(url).await?;
+                } else {
+                    error!("❌ URL mode requires a Polymarket URL");
+                    info!("Usage: polybot markets <polymarket_url> --mode url");
+                }
+            }
+        }
+        
+        Ok(())
+    }
 } 

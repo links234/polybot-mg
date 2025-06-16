@@ -1,0 +1,83 @@
+name: "Daily Market Monitor"
+description: "Daily monitoring of trending and high-volume markets using shared raw data"
+
+parameters:
+  # Shared raw markets dataset
+  raw_dataset_name: "raw_markets/${date}"
+  # Output dataset names
+  trending_dataset: "daily_trending/${date}/${datetime}"
+  high_volume_dataset: "daily_high_volume/${date}/${datetime}"
+  # Cache settings for raw data
+  cache_resolution: "hours"
+  cache_duration: "6"
+  force_refresh: ""
+  # Volume threshold for trending markets
+  min_volume: "1000"  # $1,000
+  # Price range (avoid extreme outliers)
+  min_price: "1"
+  max_price: "99"
+  chunk_size_mb: "50"
+
+steps:
+  - name: "Fetch/reuse shared raw markets data"
+    command: "fetch-all-markets"
+    args:
+      - "--dataset-name"
+      - "${raw_dataset_name}"
+      - "--chunk-size-mb"
+      - "${chunk_size_mb}"
+      - "--cache-resolution"
+      - "${cache_resolution}"
+      - "--cache-duration"
+      - "${cache_duration}"
+      - "--verbose"
+    env:
+      CACHE_ENABLED: "true"
+      FORCE_REFRESH: "${force_refresh}"
+
+  - name: "Filter trending markets"
+    command: "analyze"
+    args:
+      - "${trending_dataset}"
+      - "--source-dataset"
+      - "${raw_dataset_name}"
+      - "--active-only"
+      - "--accepting-orders-only"
+      - "--no-archived"
+      - "--min-price"
+      - "${min_price}"
+      - "--max-price"
+      - "${max_price}"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: false
+    env:
+      FILTER_TYPE: "trending"
+
+  - name: "Extract high volume markets"
+    command: "analyze"
+    args:
+      - "${high_volume_dataset}"
+      - "--source-dataset"
+      - "${trending_dataset}"
+      - "--min-volume-usd"
+      - "${min_volume}"
+      - "--detailed"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: false
+    env:
+      FILTER_TYPE: "high_volume"
+
+  - name: "Generate daily report"
+    command: "analyze"
+    args:
+      - "daily_report/${date}/${datetime}"
+      - "--source-dataset"
+      - "${high_volume_dataset}"
+      - "--detailed"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      REPORT_TYPE: "daily_monitor" 

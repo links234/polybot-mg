@@ -1,12 +1,13 @@
 use anyhow::Result;
+use tracing::info;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use std::fs::{self, File};
 use std::io::{Write, Read};
 use std::path::{Path, PathBuf};
-use owo_colors::OwoColorize;
 
 /// Storage configuration for market data
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketStorage {
     output_dir: PathBuf,
     chunk_size_bytes: usize,
@@ -24,10 +25,7 @@ impl MarketStorage {
         })
     }
     
-    /// Get the chunk size in bytes
-    pub fn chunk_size_bytes(&self) -> usize {
-        self.chunk_size_bytes
-    }
+
     
     /// Clear all stored data and state
     pub fn clear_all(&self) -> Result<()> {
@@ -95,67 +93,15 @@ impl MarketStorage {
         
         if verbose {
             let size_mb = json.len() as f64 / 1024.0 / 1024.0;
-            println!(
-                "{}",
-                format!("💾 Saved {} markets to {} ({:.2} MB)", 
-                    markets.len(), 
-                    filename, 
-                    size_mb
-                ).bright_blue()
+            info!("💾 Saved {} markets to {} ({:.2} MB)", 
+                markets.len(), 
+                filename, 
+                size_mb
             );
         }
         
         Ok(())
     }
     
-    /// Get summary statistics
-    pub fn get_summary(&self, chunk_count: usize, prefix: &str) -> Result<StorageSummary> {
-        let mut total_size = 0u64;
-        let mut total_markets = 0;
-        
-        for i in 1..=chunk_count {
-            let filename = format!("{}_chunk_{:04}.json", prefix, i);
-            let path = self.output_dir.join(&filename);
-            
-            if let Ok(metadata) = fs::metadata(&path) {
-                total_size += metadata.len();
-                
-                // Count markets in chunk
-                if let Ok(mut file) = File::open(&path) {
-                    let mut contents = String::new();
-                    if file.read_to_string(&mut contents).is_ok() {
-                        if let Ok(markets) = serde_json::from_str::<Vec<Value>>(&contents) {
-                            total_markets += markets.len();
-                        }
-                    }
-                }
-            }
-        }
-        
-        Ok(StorageSummary {
-            total_chunks: chunk_count,
-            total_size_bytes: total_size,
-            total_markets,
-            output_dir: self.output_dir.clone(),
-        })
-    }
-}
 
-#[derive(Debug)]
-pub struct StorageSummary {
-    pub total_chunks: usize,
-    pub total_size_bytes: u64,
-    pub total_markets: usize,
-    pub output_dir: PathBuf,
-}
-
-impl StorageSummary {
-    pub fn display(&self) {
-        println!("\n{}", "📊 Storage Summary:".bright_yellow());
-        println!("{}", "─".repeat(50).bright_black());
-        println!("Total markets: {}", self.total_markets);
-        println!("Total chunks: {}", self.total_chunks);
-        println!("Total size: {:.2} MB", self.total_size_bytes as f64 / 1024.0 / 1024.0);
-        println!("Output directory: {}", self.output_dir.display());
-    }
 } 

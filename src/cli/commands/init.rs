@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Args;
-use owo_colors::OwoColorize;
+use tracing::info;
 use crate::data_paths::DataPaths;
 
 #[derive(Args)]
@@ -14,9 +14,19 @@ pub struct InitArgs {
     pub nonce: u64,
 }
 
-pub async fn execute(host: &str, data_paths: DataPaths, args: InitArgs) -> Result<()> {
-    println!("{}", "🔐 Initializing Polymarket authentication...".bright_blue());
-    crate::auth::init_auth(host, &data_paths, &args.private_key, args.nonce).await?;
-    println!("{}", "✅ Authentication successful! Credentials saved.".bright_green());
-    Ok(())
+pub struct InitCommand {
+    args: InitArgs,
+}
+
+impl InitCommand {
+    pub fn new(args: InitArgs) -> Self {
+        Self { args }
+    }
+
+    pub async fn execute(&self, host: &str, data_paths: DataPaths) -> Result<()> {
+        info!("🔐 Initializing Polymarket authentication...");
+        crate::auth::init_auth(host, &data_paths, &self.args.private_key, self.args.nonce).await?;
+        info!("✅ Authentication successful! Credentials saved.");
+        Ok(())
+    }
 } 

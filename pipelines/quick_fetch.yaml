@@ -1,0 +1,43 @@
+name: "Quick Market Analysis"
+description: "Rapidly analyze active markets from shared raw market data"
+
+parameters:
+  # Shared raw markets dataset
+  raw_dataset_name: "raw_markets/${date}"
+  # Output dataset name
+  output_dataset_name: "quick_active/${date}/${datetime}"
+  # Cache settings for raw data
+  cache_resolution: "hours"
+  cache_duration: "6"
+  force_refresh: ""
+  chunk_size_mb: "50"
+
+steps:
+  - name: "Fetch/reuse shared raw markets data"
+    command: "fetch-all-markets"
+    args:
+      - "--dataset-name"
+      - "${raw_dataset_name}"
+      - "--chunk-size-mb"
+      - "${chunk_size_mb}"
+      - "--cache-resolution"
+      - "${cache_resolution}"
+      - "--cache-duration"
+      - "${cache_duration}"
+      - "--verbose"
+    env:
+      CACHE_ENABLED: "true"
+      FORCE_REFRESH: "${force_refresh}"
+
+  - name: "Quick filter for active markets"
+    command: "analyze"
+    args:
+      - "${output_dataset_name}"
+      - "--source-dataset"
+      - "${raw_dataset_name}"
+      - "--active-only"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      FILTER_TYPE: "active_only" 

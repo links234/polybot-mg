@@ -1,5 +1,5 @@
 use anyhow::Result;
-use owo_colors::OwoColorize;
+use tracing::{info, warn};
 use polymarket_rs_client::ClobClient;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -22,10 +22,10 @@ pub async fn list_active_markets(
     max_spread: Option<f64>,
     detailed: bool,
 ) -> Result<()> {
-    println!("{}", "🔄 Finding actively traded markets...".bright_blue());
+    info!("🔄 Finding actively traded markets...");
     
     // First, get a list of markets
-    println!("{}", "  📊 Fetching market list...".bright_cyan());
+    info!("  📊 Fetching market list...");
     let mut all_markets = Vec::new();
     let mut cursor: Option<String> = None;
     
@@ -47,11 +47,11 @@ pub async fn list_active_markets(
         
         // Show progress
         if (page + 1) % 10 == 0 {
-            println!("    Fetched {} markets so far...", all_markets.len());
+            info!("    Fetched {} markets so far...", all_markets.len());
         }
     }
     
-    println!("{}", format!("  ✓ Found {} total markets", all_markets.len()).bright_green());
+    info!("  ✓ Found {} total markets", all_markets.len());
     
     // Filter for binary, active markets
     let binary_active_markets: Vec<_> = all_markets.iter()
@@ -77,10 +77,10 @@ pub async fn list_active_markets(
         })
         .collect();
     
-    println!("{}", format!("  ✓ Found {} binary active markets", binary_active_markets.len()).bright_green());
+    info!("  ✓ Found {} binary active markets", binary_active_markets.len());
     
     // Now check orderbooks for these markets
-    println!("{}", "📈 Checking orderbooks for trading activity...".bright_cyan());
+    info!("📈 Checking orderbooks for trading activity...");
     
     #[derive(Debug)]
     struct ActiveMarket {
@@ -100,16 +100,42 @@ pub async fn list_active_markets(
     for market in binary_active_markets.iter() {
         checked += 1;
         
-        // Get token IDs
-        let tokens = market.get("tokens").and_then(|v| v.as_array()).unwrap();
-        let yes_token = tokens.iter().find(|t| 
-            t.get("outcome").and_then(|o| o.as_str()).map(|s| s.to_lowercase() == "yes").unwrap_or(false)
-        ).unwrap();
-        let no_token = tokens.iter().find(|t| 
-            t.get("outcome").and_then(|o| o.as_str()).map(|s| s.to_lowercase() == "no").unwrap_or(false)
-        ).unwrap();
+        // Get token IDs - skip if market structure is invalid
+        let tokens = match market.get("tokens").and_then(|v| v.as_array()) {
+            Some(tokens) => tokens,
+            None => {
+                warn!("⚠️  Skipping market with invalid tokens structure");
+                continue;
+            }
+        };
         
-        let yes_token_id = yes_token.get("token_id").and_then(|v| v.as_str()).unwrap();
+        let yes_token = match tokens.iter().find(|t| 
+            t.get("outcome").and_then(|o| o.as_str()).map(|s| s.to_lowercase() == "yes").unwrap_or(false)
+        ) {
+            Some(token) => token,
+            None => {
+                warn!("⚠️  Skipping market without YES token");
+                continue;
+            }
+        };
+        
+        let no_token = match tokens.iter().find(|t| 
+            t.get("outcome").and_then(|o| o.as_str()).map(|s| s.to_lowercase() == "no").unwrap_or(false)
+        ) {
+            Some(token) => token,
+            None => {
+                warn!("⚠️  Skipping market without NO token");
+                continue;
+            }
+        };
+        
+        let yes_token_id = match yes_token.get("token_id").and_then(|v| v.as_str()) {
+            Some(id) => id,
+            None => {
+                warn!("⚠️  Skipping market with invalid YES token ID");
+                continue;
+            }
+        };
         let yes_price = yes_token.get("price").and_then(|v| v.as_f64()).unwrap_or(0.5);
         let no_price = no_token.get("price").and_then(|v| v.as_f64()).unwrap_or(0.5);
         
@@ -179,7 +205,7 @@ pub async fn list_active_markets(
                 
                 // Show progress
                 if active_markets.len() % 5 == 0 {
-                    println!("    Found {} active markets so far (checked {} markets)...", active_markets.len(), checked);
+                    info!("    Found {} active markets so far (checked {} markets)...", active_markets.len(), checked);
                 }
                 
                 // Stop if we have enough
@@ -194,21 +220,24 @@ pub async fn list_active_markets(
         }
     }
     
-    println!("{}", format!("  ✓ Found {} actively traded markets", active_markets.len()).bright_green());
+    info!("  ✓ Found {} actively traded markets", active_markets.len());
     
     // Sort by liquidity
-    active_markets.sort_by(|a, b| b.total_liquidity.partial_cmp(&a.total_liquidity).unwrap());
+    active_markets.sort_by(|a, b| {
+        b.total_liquidity.partial_cmp(&a.total_liquidity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     
     // Display results
     let display_markets: Vec<_> = active_markets.into_iter().take(limit).collect();
     
     if display_markets.is_empty() {
-        println!("{}", "No actively traded markets found matching criteria.".yellow());
+        warn!("No actively traded markets found matching criteria.");
         return Ok(());
     }
     
-    println!("\n{}", format!("Top {} Actively Traded Markets", display_markets.len()).bright_green());
-    println!("{}", "─".repeat(120).bright_black());
+    info!("Top {} Actively Traded Markets", display_markets.len());
+    info!("{}", "─".repeat(120));
     
     if detailed {
         // Detailed view
@@ -219,57 +248,57 @@ pub async fn list_active_markets(
             
             println!(
                 "\n{} {}",
-                format!("{}.", idx + 1).bright_black(),
-                question.bright_white()
+                format!("{}.", idx + 1),
+                question
             );
             
             println!(
                 "   {} YES: ${:.3} | NO: ${:.3}",
-                "Prices:".bright_black(),
+                "Prices:",
                 market_info.yes_price,
                 market_info.no_price
             );
             
             println!(
                 "   {} {:.1}% | {} ${:.0} bid / ${:.0} ask",
-                "Spread:".bright_black(),
+                "Spread:",
                 market_info.spread,
-                "Depth:".bright_black(),
+                "Depth:",
                 market_info.bid_depth,
                 market_info.ask_depth
             );
             
             println!(
                 "   {} ${:.0}",
-                "Total Liquidity:".bright_black(),
+                "Total Liquidity:",
                 market_info.total_liquidity
             );
             
             if detailed {
                 println!(
                     "   {} {}",
-                    "YES Token:".bright_black(),
-                    market_info.yes_token_id.bright_black()
+                    "YES Token:",
+                    market_info.yes_token_id
                 );
             }
             
             if idx < display_markets.len() - 1 {
-                println!("{}", "─".repeat(120).bright_black());
+                println!("{}", "─".repeat(120));
             }
         }
     } else {
         // Compact table view
         println!(
             "{:<4} {:<50} {:>8} {:>8} {:>8} {:>12} {:>10}",
-            "#".bright_white(),
-            "Question".bright_white(),
-            "YES".bright_white(),
-            "NO".bright_white(),
-            "Spread".bright_white(),
-            "Liquidity".bright_white(),
-            "Depth".bright_white(),
+            "#",
+            "Question",
+            "YES",
+            "NO",
+            "Spread",
+            "Liquidity",
+            "Depth",
         );
-        println!("{}", "─".repeat(120).bright_black());
+        println!("{}", "─".repeat(120));
         
         for (idx, market_info) in display_markets.iter().enumerate() {
             let question = market_info.market.get("question")
@@ -283,12 +312,12 @@ pub async fn list_active_markets(
             
             println!(
                 "{:<4} {:<50} {:>8} {:>8} {:>8} {:>12} {:>10}",
-                format!("{}", idx + 1).bright_black(),
+                format!("{}", idx + 1),
                 question,
-                format!("${:.3}", market_info.yes_price).bright_green(),
-                format!("${:.3}", market_info.no_price).bright_red(),
-                format!("{:.1}%", market_info.spread).bright_yellow(),
-                format!("${:.0}", market_info.total_liquidity).bright_cyan(),
+                format!("${:.3}", market_info.yes_price),
+                format!("${:.3}", market_info.no_price),
+                format!("{:.1}%", market_info.spread),
+                format!("${:.0}", market_info.total_liquidity),
                 format!("${:.0}", market_info.bid_depth + market_info.ask_depth),
             );
         }
@@ -298,11 +327,11 @@ pub async fn list_active_markets(
     let total_liquidity: f64 = display_markets.iter().map(|m| m.total_liquidity).sum();
     let avg_spread: f64 = display_markets.iter().map(|m| m.spread).sum::<f64>() / display_markets.len() as f64;
     
-    println!("\n{}", "SUMMARY".bright_yellow());
-    println!("{}", "─".repeat(50).bright_black());
-    println!("Markets shown: {}", display_markets.len());
-    println!("Total liquidity: ${:.0}", total_liquidity);
-    println!("Average spread: {:.1}%", avg_spread);
+    println!("\nSUMMARY");
+    println!("{}", "─".repeat(50));
+    info!("Markets shown: {}", display_markets.len());
+    info!("Total liquidity: ${:.0}", total_liquidity);
+    info!("Average spread: {:.1}%", avg_spread);
     
     Ok(())
 }

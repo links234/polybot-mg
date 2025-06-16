@@ -1,16 +1,42 @@
+//! CLI module for Polybot
+//!
+//! This module provides the command-line interface for the Polybot trading bot.
+//! It uses clap for argument parsing and provides a structured command pattern
+//! for all trading operations.
+//!
+//! See README.md for detailed documentation of the CLI architecture and usage patterns.
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 mod args;
-mod commands;
+pub mod commands;
 
 pub use args::parse_percentage;
-pub use commands::*;
 use crate::data_paths::{DataPaths, DEFAULT_DATA_DIR};
+
+// Import all command args and commands
+use commands::init::{InitArgs, InitCommand};
+use commands::markets::{MarketsArgs, MarketsCommand};
+use commands::fetch_all_markets::{FetchAllMarketsArgs, FetchAllMarketsCommand};
+use commands::analyze::{AnalyzeArgs, AnalyzeCommand};
+use commands::enrich::{EnrichArgs, EnrichCommand};
+use commands::book::{BookArgs, BookCommand};
+use commands::buy::{BuyArgs, BuyCommand};
+use commands::sell::{SellArgs, SellCommand};
+use commands::cancel::{CancelArgs, CancelCommand};
+use commands::orders::{OrdersArgs, OrdersCommand};
+use commands::stream::{StreamArgs, StreamCommand};
+use commands::daemon::{DaemonArgs, DaemonCommand};
+use commands::pipeline::{PipelineArgs, PipelineCommand};
+use commands::datasets::{DatasetsArgs, DatasetsCommand};
+use commands::install::{InstallArgs, InstallCommand};
+use commands::version::{VersionArgs, VersionCommand};
 
 #[derive(Parser)]
 #[command(name = "polybot")]
+#[command(version)]
 #[command(about = "Rust CLI trading bot for Polymarket CLOB", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
@@ -23,45 +49,67 @@ pub struct Cli {
     /// Data directory path (default: ./data)
     #[arg(long, global = true, default_value = DEFAULT_DATA_DIR)]
     pub data_dir: PathBuf,
+    
+    /// Verbose logging
+    #[arg(short, long, action = clap::ArgAction::Count, global = true)]
+    pub verbose: u8,
 }
 
 #[derive(Subcommand)]
 pub enum Commands {
     /// Initialize authentication and save credentials
-    Init(commands::InitArgs),
+    Init(InitArgs),
     
     /// Browse and search Polymarket markets
-    Markets(commands::MarketsArgs),
+    Markets(MarketsArgs),
     
     /// Fetch all markets and save to JSON file
-    FetchAllMarkets(commands::FetchAllMarketsArgs),
+    FetchAllMarkets(FetchAllMarketsArgs),
     
     /// Analyze and filter fetched markets
-    Analyze(commands::AnalyzeArgs),
+    Analyze(AnalyzeArgs),
     
     /// Enrich market data with real-time information
-    Enrich(commands::EnrichArgs),
+    Enrich(EnrichArgs),
     
     /// Show orderbook for a token
-    Book(commands::BookArgs),
+    Book(BookArgs),
     
     /// Place a buy order
-    Buy(commands::BuyArgs),
+    Buy(BuyArgs),
     
     /// Place a sell order
-    Sell(commands::SellArgs),
+    Sell(SellArgs),
     
     /// Cancel an order
-    Cancel(commands::CancelArgs),
+    Cancel(CancelArgs),
     
     /// List open orders
-    Orders(commands::OrdersArgs),
+    Orders(OrdersArgs),
+    
+    /// Stream real-time market data via WebSocket
+    Stream(StreamArgs),
+    
+    /// Run streaming daemon with sample strategy
+    Daemon(DaemonArgs),
+    
+    /// Run pipeline workflows from YAML configurations
+    Pipeline(PipelineArgs),
+    
+    /// Manage datasets and pipeline outputs
+    Datasets(DatasetsArgs),
+    
+    /// Install polybot system-wide for easy access
+    Install(InstallArgs),
+    
+    /// Show version information
+    Version(VersionArgs),
 }
 
 impl Cli {
     /// Get the host URL based on sandbox flag
     pub fn get_host(&self) -> &'static str {
-        if self.sandbox || cfg!(feature = "sandbox") {
+        if self.sandbox {
             "https://clob-mumbai.polymarket.com"  // Mumbai testnet
         } else {
             "https://clob.polymarket.com"
@@ -77,16 +125,22 @@ impl Cli {
         data_paths.ensure_directories()?;
         
         match self.command {
-            Commands::Init(args) => commands::execute_init(host, data_paths, args).await,
-            Commands::Markets(args) => commands::execute_markets(host, data_paths, args).await,
-            Commands::FetchAllMarkets(args) => commands::execute_fetch_all_markets(host, data_paths, args).await,
-            Commands::Analyze(args) => commands::execute_analyze(host, data_paths, args).await,
-            Commands::Enrich(args) => commands::execute_enrich(host, data_paths, args).await,
-            Commands::Book(args) => commands::execute_book(host, data_paths, args).await,
-            Commands::Buy(args) => commands::execute_buy(host, data_paths, args).await,
-            Commands::Sell(args) => commands::execute_sell(host, data_paths, args).await,
-            Commands::Cancel(args) => commands::execute_cancel(host, data_paths, args).await,
-            Commands::Orders(args) => commands::execute_orders(host, data_paths, args).await,
+            Commands::Init(args) => InitCommand::new(args).execute(host, data_paths).await,
+            Commands::Markets(args) => MarketsCommand::new(args).execute(host, data_paths).await,
+            Commands::FetchAllMarkets(args) => FetchAllMarketsCommand::new(args).execute(host, data_paths, self.verbose > 0).await,
+            Commands::Analyze(args) => AnalyzeCommand::new(args).execute(host, data_paths).await,
+            Commands::Enrich(args) => EnrichCommand::new(args).execute(host, data_paths).await,
+            Commands::Book(args) => BookCommand::new(args).execute(host, data_paths).await,
+            Commands::Buy(args) => BuyCommand::new(args).execute(host, data_paths).await,
+            Commands::Sell(args) => SellCommand::new(args).execute(host, data_paths).await,
+            Commands::Cancel(args) => CancelCommand::new(args).execute(host, data_paths).await,
+            Commands::Orders(args) => OrdersCommand::new(args).execute(host, data_paths).await,
+            Commands::Stream(args) => StreamCommand::new(args).execute(host, data_paths).await,
+            Commands::Daemon(args) => DaemonCommand::new(args).execute(host, data_paths).await,
+            Commands::Pipeline(args) => PipelineCommand::new(args).execute(host, data_paths).await,
+            Commands::Datasets(args) => DatasetsCommand::new(args).execute(host, data_paths).await,
+            Commands::Install(args) => InstallCommand::new(args).execute(host, data_paths).await,
+            Commands::Version(args) => VersionCommand::new(args).execute(host, data_paths).await,
         }
     }
 } 

@@ -43,6 +43,16 @@ pub struct EnrichArgs {
     pub start_from: Option<usize>,
 }
 
-pub async fn execute(host: &str, data_paths: DataPaths, args: EnrichArgs) -> Result<()> {
-    crate::markets::enrich_markets(host, data_paths, args).await
+pub struct EnrichCommand {
+    args: EnrichArgs,
+}
+
+impl EnrichCommand {
+    pub fn new(args: EnrichArgs) -> Self {
+        Self { args }
+    }
+
+    pub async fn execute(&self, host: &str, data_paths: DataPaths) -> Result<()> {
+        crate::markets::enrich_markets(host, data_paths, self.args.clone()).await
+    }
 } 

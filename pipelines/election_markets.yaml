@@ -1,0 +1,83 @@
+name: "Election Markets Analysis"
+description: "Filter and analyze election-related prediction markets"
+
+# This pipeline demonstrates advanced text filtering capabilities:
+# - Uses fuzzy search to find election-related markets
+# - Searches across title, description, and tags
+# - Filters by categories and date ranges
+
+parameters:
+  # Shared raw markets dataset
+  raw_dataset_name: "raw_markets/${date}"
+  # Output dataset name
+  output_dataset_name: "election_markets/${date}/${datetime}"
+  # Cache settings
+  cache_resolution: "hours"
+  cache_duration: "6"
+  force_refresh: ""
+  # Fuzzy search settings
+  fuzzy_threshold: "0.7"  # 70% character match threshold
+  # Date filter - markets ending before this date
+  ending_before: "2025-01-01T00:00:00Z"
+  # Chunk size
+  chunk_size_mb: "50"
+
+steps:
+  - name: "Fetch/reuse shared raw markets data"
+    command: "fetch-all-markets"
+    args:
+      - "--dataset-name"
+      - "${raw_dataset_name}"
+      - "--chunk-size-mb"
+      - "${chunk_size_mb}"
+      - "--cache-resolution"
+      - "${cache_resolution}"
+      - "--cache-duration"
+      - "${cache_duration}"
+      - "--verbose"
+    env:
+      CACHE_ENABLED: "true"
+      FORCE_REFRESH: "${force_refresh}"
+
+  # Filter for election markets using multiple text search options
+  - name: "Filter election markets"
+    command: "analyze"
+    args:
+      - "${output_dataset_name}"
+      - "--source-dataset"
+      - "${raw_dataset_name}"
+      - "--active-only"
+      - "--no-archived"
+      - "--text-search"
+      - "election"
+      - "--title-contains-any"
+      - "president,senate,congress,governor,mayor,vote,ballot,primary,GOP,democrat,republican"
+      - "--categories"
+      - "Politics,Elections"
+      - "--fuzzy-search"
+      - "election vote"
+      - "--fuzzy-threshold"
+      - "${fuzzy_threshold}"
+      - "--ending-before"
+      - "${ending_before}"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: false
+    env:
+      FILTER_TYPE: "election_markets"
+      SEARCH_MODE: "comprehensive_text_search"
+
+  # Generate detailed election markets report
+  - name: "Generate election markets report"
+    command: "analyze"
+    args:
+      - "election_report/${date}/${datetime}"
+      - "--source-dataset"
+      - "${output_dataset_name}"
+      - "--detailed"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      ANALYSIS_TYPE: "election_analysis"
+      REPORT_SECTIONS: "candidate_breakdown,state_analysis,timeline" 

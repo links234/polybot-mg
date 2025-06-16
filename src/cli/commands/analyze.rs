@@ -2,14 +2,14 @@ use anyhow::Result;
 use clap::Args;
 use crate::data_paths::DataPaths;
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct AnalyzeArgs {
     /// Name for the filtered dataset
     pub dataset_name: String,
     
-    /// Source of markets to analyze (clob or gamma)
-    #[arg(long, default_value = "clob")]
-    pub source: String,
+    /// Source dataset path or name to analyze
+    #[arg(long)]
+    pub source_dataset: String,
     
     /// Filter: minimum price for YES outcome (0-100)
     #[arg(long, value_parser = crate::cli::parse_percentage)]
@@ -55,6 +55,38 @@ pub struct AnalyzeArgs {
     #[arg(long)]
     pub ending_before: Option<String>,
     
+    /// Filter: title must contain this text (case-insensitive)
+    #[arg(long)]
+    pub title_contains: Option<String>,
+    
+    /// Filter: title must match this regex pattern
+    #[arg(long)]
+    pub title_regex: Option<String>,
+    
+    /// Filter: title must contain ANY of these keywords (comma-separated)
+    #[arg(long)]
+    pub title_contains_any: Option<String>,
+    
+    /// Filter: title must contain ALL of these keywords (comma-separated)
+    #[arg(long)]
+    pub title_contains_all: Option<String>,
+    
+    /// Filter: description must contain this text (case-insensitive)
+    #[arg(long)]
+    pub description_contains: Option<String>,
+    
+    /// Filter: fuzzy search in title and description (0.0-1.0 threshold)
+    #[arg(long)]
+    pub fuzzy_search: Option<String>,
+    
+    /// Filter: fuzzy search threshold (0.0-1.0, default 0.7)
+    #[arg(long, default_value = "0.7")]
+    pub fuzzy_threshold: f64,
+    
+    /// Filter: search in all text fields (title, description, tags)
+    #[arg(long)]
+    pub text_search: Option<String>,
+    
     /// Include detailed analysis in output
     #[arg(long)]
     pub detailed: bool,
@@ -64,6 +96,16 @@ pub struct AnalyzeArgs {
     pub summary: bool,
 }
 
-pub async fn execute(_host: &str, data_paths: DataPaths, args: AnalyzeArgs) -> Result<()> {
-    crate::markets::analyze_markets(data_paths, args).await
+pub struct AnalyzeCommand {
+    args: AnalyzeArgs,
+}
+
+impl AnalyzeCommand {
+    pub fn new(args: AnalyzeArgs) -> Self {
+        Self { args }
+    }
+
+    pub async fn execute(&self, _host: &str, data_paths: DataPaths) -> Result<()> {
+        crate::markets::analyze_markets(data_paths, self.args.clone()).await
+    }
 } 

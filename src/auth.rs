@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use polymarket_rs_client::ClobClient;
-use owo_colors::OwoColorize;
+use tracing::info;
 
 use crate::config;
 use crate::data_paths::DataPaths;
@@ -13,7 +13,7 @@ pub async fn init_auth(host: &str, data_paths: &DataPaths, private_key_hex: &str
     // Create client with L1 headers (this automatically adds POLY_* headers)
     let client = ClobClient::with_l1_headers(host, private_key_hex, 137);
     
-    println!("{}", "📡 Performing L1 authentication...".bright_cyan());
+    info!("📡 Performing L1 authentication...");
     
     // Create or derive API key (L2 credentials)
     // Convert nonce to U256
@@ -26,7 +26,7 @@ pub async fn init_auth(host: &str, data_paths: &DataPaths, private_key_hex: &str
     let api_creds = client.create_or_derive_api_key(nonce_u256).await
         .map_err(|e| anyhow!("Failed to create/derive API key: {}", e))?;
     
-    println!("{}", "🔑 API credentials obtained successfully".bright_green());
+    info!("🔑 API credentials obtained successfully");
     
     // Save credentials to encrypted file
     config::save_credentials(data_paths, &api_creds).await?;
@@ -34,7 +34,7 @@ pub async fn init_auth(host: &str, data_paths: &DataPaths, private_key_hex: &str
     // Also save the private key for future use
     config::save_private_key(data_paths, private_key_hex).await?;
     
-    println!("{}", "💾 Credentials saved to encrypted storage".bright_green());
+    info!("💾 Credentials saved to encrypted storage");
     
     Ok(())
 }

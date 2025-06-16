@@ -1,0 +1,83 @@
+name: "Comprehensive Market Analysis"
+description: "Full market analysis with filtering, enrichment, and reporting using shared raw data"
+
+parameters:
+  # Shared raw markets dataset
+  raw_dataset_name: "raw_markets/${date}"
+  # Output dataset names
+  active_dataset: "active_markets/${date}/${datetime}"
+  enriched_dataset: "enriched_markets/${date}/${datetime}"
+  # Cache settings for raw data
+  cache_resolution: "hours"
+  cache_duration: "6"
+  force_refresh: ""
+  # Analysis thresholds
+  min_volume: "5000"  # $5,000
+  min_price: "5"
+  max_price: "95"
+  chunk_size_mb: "50"
+
+steps:
+  - name: "Fetch/reuse shared raw markets data"
+    command: "fetch-all-markets"
+    args:
+      - "--dataset-name"
+      - "${raw_dataset_name}"
+      - "--chunk-size-mb"
+      - "${chunk_size_mb}"
+      - "--cache-resolution"
+      - "${cache_resolution}"
+      - "--cache-duration"
+      - "${cache_duration}"
+      - "--verbose"
+    env:
+      CACHE_ENABLED: "true"
+      FORCE_REFRESH: "${force_refresh}"
+
+  - name: "Filter active markets"
+    command: "analyze"
+    args:
+      - "${active_dataset}"
+      - "--source-dataset"
+      - "${raw_dataset_name}"
+      - "--active-only"
+      - "--accepting-orders-only"
+      - "--no-archived"
+      - "--min-price"
+      - "${min_price}"
+      - "--max-price"
+      - "${max_price}"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: false
+    env:
+      FILTER_TYPE: "active_markets"
+
+  - name: "Enrich markets with metadata"
+    command: "enrich"
+    args:
+      - "${enriched_dataset}"
+      - "--source-dataset"
+      - "${active_dataset}"
+      - "--fetch-metadata"
+      - "--fetch-tags"
+      - "--max-markets"
+      - "100"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      ENRICHMENT_TYPE: "metadata"
+
+  - name: "Generate comprehensive report"
+    command: "analyze"
+    args:
+      - "market_analysis_report/${date}/${datetime}"
+      - "--source-dataset"
+      - "${enriched_dataset}"
+      - "--detailed"
+      - "--summary"
+      - "--generate-html"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      REPORT_TYPE: "comprehensive" 

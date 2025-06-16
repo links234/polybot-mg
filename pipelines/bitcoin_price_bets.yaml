@@ -1,0 +1,101 @@
+name: "Bitcoin Price Bets"
+description: "Filter markets specifically for Bitcoin up/down price predictions"
+
+# This pipeline filters for Bitcoin price prediction markets by:
+# 1. Finding markets with "bitcoin" in the title
+# 2. AND containing price-related keywords (up, down, above, below, etc.)
+# 3. Filtering for active binary markets in the 1-99% price range
+#
+# The analyze command now supports advanced title filtering:
+# --title-contains: Must contain this exact text
+# --title-contains-any: Must contain ANY of these comma-separated keywords
+# --title-contains-all: Must contain ALL of these comma-separated keywords
+# --description-contains: Filter by description content
+# --text-search: Search across title, description, and tags
+
+parameters:
+  # Shared raw markets dataset
+  raw_dataset_name: "raw_markets/${date}"
+  # Output dataset name
+  output_dataset_name: "bitcoin_price_bets/${date}/${datetime}"
+  # Cache settings for raw data
+  cache_resolution: "hours"
+  cache_duration: "6"
+  force_refresh: ""
+  # Price range for active bets (typical for binary markets)
+  min_price: "1"   # 1% minimum
+  max_price: "99"  # 99% maximum
+  # Chunk size for data processing
+  chunk_size_mb: "50"
+
+steps:
+  - name: "Fetch/reuse shared raw markets data"
+    command: "fetch-all-markets"
+    args:
+      - "--dataset-name"
+      - "${raw_dataset_name}"
+      - "--chunk-size-mb"
+      - "${chunk_size_mb}"
+      - "--cache-resolution"
+      - "${cache_resolution}"
+      - "--cache-duration"
+      - "${cache_duration}"
+      - "--verbose"
+    env:
+      CACHE_ENABLED: "true"
+      FORCE_REFRESH: "${force_refresh}"
+
+  # Filter for Bitcoin price bet markets using the new title filtering options
+  - name: "Filter Bitcoin price bet markets"
+    command: "analyze"
+    args:
+      - "${output_dataset_name}"
+      - "--source-dataset"
+      - "${raw_dataset_name}"
+      - "--active-only"
+      - "--accepting-orders-only"
+      - "--no-archived"
+      - "--min-price"
+      - "${min_price}"
+      - "--max-price"
+      - "${max_price}"
+      - "--title-contains"
+      - "bitcoin"
+      - "--title-contains-any"
+      - "price,up,down,above,below,over,under,higher,lower,bull,bear,reach,$,btc"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: false
+    env:
+      FILTER_TYPE: "bitcoin_price_bets"
+      TARGET_KEYWORDS: "bitcoin,btc,price,up,down,above,below,over,under,higher,lower"
+
+  # Generate a detailed report showing the filtered Bitcoin markets
+  - name: "Generate detailed Bitcoin markets report"
+    command: "analyze"
+    args:
+      - "bitcoin_bets_detailed/${date}/${datetime}"
+      - "--source-dataset"
+      - "${output_dataset_name}"
+      - "--detailed"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      ANALYSIS_TYPE: "bitcoin_markets_listing"
+      REPORT_FORMAT: "detailed_with_prices"
+
+  # Generate statistical analysis of Bitcoin price bet markets
+  - name: "Generate statistical analysis"
+    command: "analyze"
+    args:
+      - "bitcoin_bets_stats/${date}/${datetime}"
+      - "--source-dataset"
+      - "${output_dataset_name}"
+      - "--detailed"
+      - "--summary"
+      - "--verbose"
+    continue_on_error: true
+    env:
+      ANALYSIS_TYPE: "statistical_analysis"
+      REPORT_SECTIONS: "price_distribution,volume_analysis,market_timing" 

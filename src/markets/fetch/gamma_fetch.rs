@@ -4,7 +4,7 @@ use owo_colors::OwoColorize;
 use crate::markets::{
     storage::MarketStorage,
     providers::GammaProvider,
-    fetcher::MarketFetcher,
+    fetcher::{MarketFetcher, FetcherConfig},
     types::GammaFetchState,
 };
 
@@ -35,8 +35,16 @@ pub async fn fetch_all_markets_gamma(
     // Create provider
     let provider = GammaProvider::new();
     
-    // Create fetcher
-    let mut fetcher = MarketFetcher::new(provider, storage, verbose);
+    // Create fetcher with verbose config
+    let config = if verbose {
+        FetcherConfig {
+            verbose: true,
+            ..Default::default()
+        }
+    } else {
+        Default::default()
+    };
+    let mut fetcher = MarketFetcher::with_config(provider, storage, config);
     
     // Fetch all markets
     fetcher.fetch_all::<GammaFetchState>("gamma_fetch_state.json", "gamma_markets").await?;

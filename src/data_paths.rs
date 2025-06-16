@@ -3,12 +3,15 @@ use std::path::{Path, PathBuf};
 /// Default data directory (relative to current working directory)
 pub const DEFAULT_DATA_DIR: &str = "./data";
 
+/// Default datasets directory (relative to current working directory)
+pub const DEFAULT_DATASETS_DIR: &str = "./data/datasets";
+
+/// Default runs directory (relative to current working directory)
+pub const DEFAULT_RUNS_DIR: &str = "./data/datasets/runs";
+
 /// Subdirectory paths relative to the data directory
-pub const MARKETS_DIR: &str = "markets";
-pub const MARKETS_CLOB_DIR: &str = "markets/clob";
-pub const MARKETS_GAMMA_DIR: &str = "markets/gamma";
-pub const MARKETS_CACHE_DIR: &str = "markets/cache";
-pub const MARKETS_DATASETS_DIR: &str = "markets/datasets";
+pub const DATASETS_DIR: &str = "datasets";
+pub const RUNS_DIR: &str = "runs";
 pub const AUTH_DIR: &str = "auth";
 pub const LOGS_DIR: &str = "logs";
 
@@ -26,34 +29,15 @@ impl DataPaths {
         }
     }
     
-    /// Get the root data directory
-    pub fn root(&self) -> &Path {
-        &self.root
+    
+    /// Get the datasets directory (default location for all dataset outputs)
+    pub fn datasets(&self) -> PathBuf {
+        self.root.join(DATASETS_DIR)
     }
     
-    /// Get the markets directory
-    pub fn markets(&self) -> PathBuf {
-        self.root.join(MARKETS_DIR)
-    }
-    
-    /// Get the CLOB markets directory
-    pub fn markets_clob(&self) -> PathBuf {
-        self.root.join(MARKETS_CLOB_DIR)
-    }
-    
-    /// Get the Gamma markets directory
-    pub fn markets_gamma(&self) -> PathBuf {
-        self.root.join(MARKETS_GAMMA_DIR)
-    }
-    
-    /// Get the markets cache directory
-    pub fn markets_cache(&self) -> PathBuf {
-        self.root.join(MARKETS_CACHE_DIR)
-    }
-    
-    /// Get the markets datasets directory
-    pub fn markets_datasets(&self) -> PathBuf {
-        self.root.join(MARKETS_DATASETS_DIR)
+    /// Get the runs directory (for pipeline and command outputs)
+    pub fn runs(&self) -> PathBuf {
+        self.datasets().join(RUNS_DIR)
     }
     
     /// Get the auth directory
@@ -69,11 +53,8 @@ impl DataPaths {
     /// Ensure all directories exist
     pub fn ensure_directories(&self) -> std::io::Result<()> {
         std::fs::create_dir_all(&self.root)?;
-        std::fs::create_dir_all(self.markets())?;
-        std::fs::create_dir_all(self.markets_clob())?;
-        std::fs::create_dir_all(self.markets_gamma())?;
-        std::fs::create_dir_all(self.markets_cache())?;
-        std::fs::create_dir_all(self.markets_datasets())?;
+        std::fs::create_dir_all(self.datasets())?;
+        std::fs::create_dir_all(self.runs())?;
         std::fs::create_dir_all(self.auth())?;
         std::fs::create_dir_all(self.logs())?;
         Ok(())

@@ -33,13 +33,14 @@ reqwest = { version = "0.12.19", features = ["json"] }
 comfy-table = "7.0"
 indicatif = "0.17"
 futures = "0.3"
+rayon = "1.10"
 argon2 = "0.5"
 async-trait = "0.1"
 directories = "6.0.0"
 dotenvy = "0.15"
 
 # WebSocket streaming dependencies
-tokio-tungstenite = { version = "0.26.2", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.27.0", features = ["native-tls"] }
 tokio-stream = "0.1"
 dashmap = "6.1.0"
 blake3 = "1.5"
@@ -51,6 +52,10 @@ url = "2.5"
 backoff = "0.4"
 hmac = "0.12"
 sha2 = "0.10"
+
+# RocksDB storage dependencies
+rocksdb = "0.23.0"
+bincode = "2.0.1"
 
 # Interactive TUI dependencies
 ratatui = "0.29"

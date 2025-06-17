@@ -1,6 +1,6 @@
 # Terminal User Interface (TUI) Module
 
-This module provides a comprehensive terminal-based user interface for real-time Polymarket order book visualization and interaction. Built with ratatui, it offers a responsive, keyboard-driven experience for monitoring live market data.
+This module provides comprehensive terminal-based interfaces for the Polybot trading system. Built with ratatui, it offers responsive, keyboard-driven experiences for various operations including real-time market streaming, database indexing, and market browsing.
 
 ## Architecture Overview
 
@@ -33,9 +33,56 @@ The TUI module implements a state-driven architecture with clear separation of c
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Components
+## TUI Applications
 
-### 1. Application State (`app.rs`)
+### 1. WebSocket Streaming TUI (`app.rs`, `ui.rs`, `events.rs`)
+
+Real-time market data streaming interface for monitoring WebSocket feeds.
+
+### 2. Database Indexing TUI (`index.rs`)
+
+File selection and management interface for RocksDB indexing operations.
+
+### 3. Indexing Progress TUI (`indexing_progress.rs`)
+
+Real-time progress tracking during database indexing with multi-phase visualization:
+
+**Features:**
+- Multi-phase progress tracking (file processing, conditions, tokens)
+- Real-time market counting and processing rates
+- Event log for debugging
+- Performance metrics (markets/sec, elapsed time)
+- Graceful error handling with visual feedback
+
+**Progress Phases:**
+1. **Starting**: Initializing database and preparing files
+2. **ProcessingFiles**: Reading and parsing market JSON files
+3. **IndexingConditions**: Creating condition indices
+4. **IndexingTokens**: Building token-to-condition mappings
+5. **Finalizing**: Completing database operations
+6. **Completed/Failed**: Final status
+
+**Usage:**
+```rust
+// Create progress channel
+let (sender, receiver) = create_progress_channel();
+let progress = Arc::new(Mutex::new(IndexingProgress::default()));
+
+// Spawn indexing with progress updates
+let command = IndexCommand::new(args).with_progress_sender(sender);
+
+// Run progress UI
+let mut progress_ui = IndexingProgressUI::new(progress);
+progress_ui.run().await?;
+```
+
+### 4. Markets Browser TUI (`markets.rs`)
+
+Interactive market browsing and search interface.
+
+## Core Components
+
+### Application State (`app.rs`)
 
 **Key Features:**
 - **Multi-View State Management**: Seamless transitions between overview and detailed views

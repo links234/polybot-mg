@@ -27,6 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Method organization** - functionality belongs on the struct it operates on
 - **Logging at every important step** for debugging and monitoring
 - **Type-driven development** - let the type system prevent bugs
+- **Test Organization**: NEVER put tests in the same file as source code. Tests MUST be in separate `test/` directory with same folder path as file being tested (e.g., `src/markets/fetcher.rs` → `test/markets/fetcher.rs`). This prevents context pollution and improves code retrieval.
 
 ### Warning Handling Rules
 
@@ -256,7 +257,8 @@ cargo run -- tui-test
 
 ### Testing Strategy
 
-- Unit tests in module files (using `#[cfg(test)]`)
-- Integration testing via CLI commands
-- TUI test mode for interface validation
-- WebSocket simulation for offline development
+- **Unit tests in separate `test/` directory** with same folder structure as `src/` (e.g., `src/markets/fetcher.rs` → `test/markets/fetcher.rs`)
+- **Integration testing** via CLI commands and dedicated integration test files
+- **TUI test mode** for interface validation
+- **WebSocket simulation** for offline development
+- **Test file organization** prevents context pollution and improves code retrieval

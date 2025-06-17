@@ -25,3 +25,4 @@ pub mod pipeline;
 pub mod datasets;
 pub mod install;
 pub mod version;
+pub mod index;

@@ -14,6 +14,7 @@ use crate::logging::{LogMode, LoggingConfig, init_logging};
 use crate::services::{Streamer, StreamerConfig};
 use crate::ws::{WsConfig, AuthPayload, PolyEvent, Side};
 use crate::tui::{App, EventHandler, ui, events};
+use crate::datasets::SelectionManager;
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, KeyCode},
@@ -34,6 +35,10 @@ pub struct StreamArgs {
     /// Path to markets.json file to load asset IDs from
     #[arg(long)]
     pub markets_path: Option<String>,
+    
+    /// Use a saved token selection
+    #[arg(long)]
+    pub selection: Option<String>,
     
     /// Markets for user feed (comma-separated, requires auth)
     #[arg(long, value_delimiter = ',')]
@@ -110,45 +115,35 @@ impl StreamCommand {
         let logging_config = LoggingConfig::new(LogMode::FileOnly, data_paths.clone());
         init_logging(logging_config)?;
         
-        // Now use direct println! for nice console output without log prefixes
+        // Show nice header first before any potential errors
         println!("\n🚀 Starting Polymarket WebSocket Stream");
         println!("═══════════════════════════════════════════");
         
-        // Load assets and show progress
-        let assets = if let Some(markets_path) = &self.args.markets_path {
-            println!("📁 Loading markets from: {}", markets_path);
-            let loaded_assets = self.load_assets_from_markets_file(markets_path)?;
-            println!("✅ Loaded {} assets from markets file", loaded_assets.len());
-            
-            // Show first few token IDs as examples
-            if loaded_assets.len() > 0 {
-                println!("📊 Example tokens:");
-                for (i, token) in loaded_assets.iter().take(3).enumerate() {
-                    println!("   {} {}", 
-                        if i == loaded_assets.len() - 1 || i == 2 { "└" } else { "├" },
-                        token
-                    );
-                }
-                if loaded_assets.len() > 3 {
-                    println!("   └ ... and {} more", loaded_assets.len() - 3);
-                }
+        // Load assets - this might trigger the interactive selector
+        let assets = match self.get_assets_for_streaming(&data_paths).await {
+            Ok(assets) => assets,
+            Err(e) => {
+                // Show the error after the nice header
+                println!("\n❌ {}", e);
+                return Err(e);
             }
-            loaded_assets
-        } else {
-            println!("📊 Using {} directly specified assets", self.args.assets.len());
-            for (i, token) in self.args.assets.iter().enumerate() {
-                println!("   {} {}", 
-                    if i == self.args.assets.len() - 1 { "└" } else { "├" },
-                    token
-                );
-            }
-            self.args.assets.clone()
         };
 
         if assets.is_empty() {
-            eprintln!("\n❌ Error: At least one asset ID must be provided");
-            eprintln!("   Use --assets or --markets-path");
-            return Err(anyhow::anyhow!("No assets specified"));
+            println!("\n❌ No assets selected");
+            return Err(anyhow::anyhow!("No assets selected"));
+        }
+
+        // Show asset information
+        println!("📊 Streaming {} assets:", assets.len());
+        for (i, token) in assets.iter().take(5).enumerate() {
+            println!("   {} {}", 
+                if i == assets.len() - 1 || i == 4 { "└" } else { "├" },
+                token
+            );
+        }
+        if assets.len() > 5 {
+            println!("   └ ... and {} more", assets.len() - 5);
         }
 
         // Configure WebSocket and show progress
@@ -208,8 +203,8 @@ impl StreamCommand {
             }
         }
         
-        // Give a moment for initial data to arrive
-        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        // Wait for initial data with proper timeout handling and progress feedback
+        self.wait_for_initial_data(&streamer).await?;
         
         println!("\n🎨 Starting TUI interface...");
         println!("💡 Keyboard shortcuts: ↑/↓ Navigate | Enter: Select | q: Quit");
@@ -435,18 +430,24 @@ impl StreamCommand {
     }
 
     async fn execute_cli(&self, host: &str, data_paths: DataPaths) -> Result<()> {
-        // Load assets from either direct args or markets file
-        let assets = if let Some(markets_path) = &self.args.markets_path {
-            self.load_assets_from_markets_file(markets_path)?
-        } else {
-            self.args.assets.clone()
+        // Show header first in CLI mode too
+        info!("🚀 Starting Polymarket WebSocket Stream");
+        
+        // Load assets from various sources
+        let assets = match self.get_assets_for_streaming(&data_paths).await {
+            Ok(assets) => assets,
+            Err(e) => {
+                error!("Failed to get assets: {}", e);
+                return Err(e);
+            }
         };
 
         if assets.is_empty() {
-            return Err(anyhow::anyhow!("At least one asset ID must be provided with --assets or --markets-path"));
+            error!("No assets selected");
+            return Err(anyhow::anyhow!("No assets selected"));
         }
 
-        info!("🚀 Starting Polymarket WebSocket stream with {} assets", assets.len());
+        info!("📊 Streaming {} assets", assets.len());
 
         // Configure WebSocket
         let ws_config = WsConfig {
@@ -480,11 +481,24 @@ impl StreamCommand {
             auto_sync_on_hash_mismatch: true,
         };
 
+        // Skip connectivity test for now - proceed directly to streaming
+        println!("\n🔌 Starting WebSocket connection...");
+        
         // Create and start streamer
+        println!("\n🔗 Creating WebSocket streamer...");
         let mut streamer = Streamer::new(streamer_config);
-        info!("🔌 Connecting to host: {}", host);
-        streamer.start(host, &data_paths).await?;
-        info!("🔗 Streamer started successfully");
+        info!("🔌 Starting streamer for host: {}", host);
+        
+        match streamer.start(host, &data_paths).await {
+            Ok(_) => {
+                println!("✅ Streamer started successfully");
+                info!("🔗 Streamer started successfully");
+            }
+            Err(e) => {
+                eprintln!("\n❌ Failed to start streamer: {}", e);
+                return Err(anyhow::anyhow!("Failed to start streamer: {}", e));
+            }
+        }
 
         // Set up event handling
         let mut events = streamer.events();
@@ -551,6 +565,147 @@ impl StreamCommand {
         Ok(())
     }
 
+    /// Get assets for streaming from all possible sources with fallback to dataset selector
+    async fn get_assets_for_streaming(&self, data_paths: &DataPaths) -> Result<Vec<String>> {
+        // 1. Check direct assets argument
+        if !self.args.assets.is_empty() {
+            info!("Using {} directly specified assets", self.args.assets.len());
+            return Ok(self.args.assets.clone());
+        }
+
+        // 2. Check markets_path argument
+        if let Some(markets_path) = &self.args.markets_path {
+            info!("Loading assets from markets file: {}", markets_path);
+            return self.load_assets_from_markets_file(markets_path);
+        }
+
+        // 3. Check selection argument
+        if let Some(selection_name) = &self.args.selection {
+            info!("Loading assets from selection: {}", selection_name);
+            return self.load_assets_from_selection(selection_name, data_paths);
+        }
+
+        // 4. No explicit source provided - trigger dataset selector
+        info!("No assets specified, triggering dataset selector");
+        
+        // Check if we're in TUI mode for interactive selector
+        if self.args.tui {
+            match self.run_interactive_dataset_selector(data_paths).await {
+                Ok(assets) => {
+                    if !assets.is_empty() {
+                        info!("Selected {} assets from dataset selector", assets.len());
+                        return Ok(assets);
+                    } else {
+                        return Err(anyhow::anyhow!("No assets selected from dataset selector"));
+                    }
+                }
+                Err(e) => {
+                    let error_str = e.to_string();
+                    
+                    // If it's a terminal availability issue, return the detailed error directly
+                    if error_str.contains("Interactive dataset selector requires a terminal environment") {
+                        return Err(e);
+                    }
+                    
+                    // If the dataset selector was cancelled by user, return that specific error
+                    if error_str.contains("Dataset selection cancelled by user") {
+                        return Err(e);
+                    }
+                    
+                    // For other dataset selector errors, return them directly
+                    // Don't fall through to the generic "No assets specified" error
+                    return Err(anyhow::anyhow!("Dataset selector error: {}", e));
+                }
+            }
+        }
+
+        // 5. Fall back to non-interactive selection list (only for non-TUI mode)
+        self.show_available_selections_and_exit(data_paths).await
+    }
+
+    async fn run_interactive_dataset_selector(&self, data_paths: &DataPaths) -> Result<Vec<String>> {
+        println!("🔍 No assets specified - opening dataset selector...");
+        println!("💡 You can also use --assets, --markets-path, or --selection");
+        
+        // Use the improved dataset selector v2
+        // Pass the datasets directory path specifically
+        let datasets_path = data_paths.data().join("datasets");
+        
+        // Ensure the datasets directory exists
+        if !datasets_path.exists() {
+            std::fs::create_dir_all(&datasets_path)?;
+        }
+        
+        // Try to run the dataset selector with better error handling
+        match crate::tui::dataset_selector::DatasetSelector::run(
+            &datasets_path.to_string_lossy()
+        ).await {
+            Ok(result) => {
+                if result.cancelled {
+                    return Err(anyhow::anyhow!("Dataset selection cancelled by user"));
+                }
+                Ok(result.selected_tokens)
+            }
+            Err(e) => {
+                // Check if this is a terminal-related error
+                let error_str = e.to_string();
+                if error_str.contains("TUI not available") || 
+                   error_str.contains("Device not configured") ||
+                   error_str.contains("not a terminal") {
+                    // Provide a more helpful error message for terminal issues
+                    return Err(anyhow::anyhow!(
+                        "Interactive dataset selector requires a terminal environment.\n\
+                        \n\
+                        The TUI interface is not available in this environment.\n\
+                        Please use one of these alternatives:\n\
+                        \n\
+                        1. Run in a proper terminal (not in a pipe/redirect)\n\
+                        2. Specify assets directly: polybot stream --assets TOKEN1,TOKEN2\n\
+                        3. Use a saved selection: polybot stream --selection <name>\n\
+                        4. Load from file: polybot stream --markets-path <file>\n\
+                        \n\
+                        To create selections for later use:\n\
+                        polybot selections create --name <name> --tokens TOKEN1,TOKEN2"
+                    ));
+                }
+                // For other errors, return the original error
+                Err(e)
+            }
+        }
+    }
+
+    async fn show_available_selections_and_exit(&self, data_paths: &DataPaths) -> Result<Vec<String>> {
+        println!("\nYou must provide assets in one of these ways:");
+        println!("  1. Direct tokens:     polybot stream --assets TOKEN1,TOKEN2,TOKEN3");
+        println!("  2. Markets file:      polybot stream --markets-path path/to/markets.json");
+        println!("  3. Saved selection:   polybot stream --selection <name>");
+        
+        // Show available selections
+        let manager = SelectionManager::new(&data_paths.data());
+        let selections = manager.list_all_selections()?;
+        
+        if !selections.is_empty() {
+            println!("\nAvailable selections:");
+            for selection in &selections {
+                println!("  • {}", selection);
+            }
+            println!("\nExample: polybot stream --selection {}", selections.first().unwrap());
+        } else {
+            println!("\nNo saved selections found.");
+            println!("Create one with: polybot selections create --name my-selection --tokens TOKEN1,TOKEN2");
+        }
+        
+        println!("\nFor interactive selection (requires terminal):");
+        println!("  Run 'polybot stream' in a proper terminal window");
+        
+        Err(anyhow::anyhow!("No assets specified for streaming"))
+    }
+
+    fn load_assets_from_selection(&self, selection_name: &str, data_paths: &DataPaths) -> Result<Vec<String>> {
+        let manager = SelectionManager::new(&data_paths.data());
+        manager.get_tokens(selection_name)
+            .map_err(|e| anyhow::anyhow!("Failed to load selection '{}': {}", selection_name, e))
+    }
 
     fn load_assets_from_markets_file(&self, markets_path: &str) -> Result<Vec<String>> {
         info!("📁 Loading markets from: {}", markets_path);
@@ -648,6 +803,130 @@ impl StreamCommand {
                 info!("  {}", summary);
             }
         }
+    }
+
+    /// Wait for initial WebSocket data with progress indicators and timeout handling
+    async fn wait_for_initial_data(&self, streamer: &Streamer) -> Result<()> {
+        use std::time::Duration;
+        
+        println!("⏳ Waiting for WebSocket data...");
+        info!("Waiting for initial WebSocket data before starting TUI...");
+        
+        let timeout_duration = Duration::from_secs(10); // Extended timeout to handle slow connections
+        let check_interval = Duration::from_millis(500);
+        let mut elapsed = Duration::from_secs(0);
+        let mut events = streamer.events();
+        let mut data_received = false;
+        let mut connection_established = false;
+        
+        // Show progress dots
+        let mut progress_dots = 0;
+        
+        while elapsed < timeout_duration {
+            // Check for events with timeout
+            let event_result = tokio::time::timeout(check_interval, events.recv()).await;
+            
+            match event_result {
+                Ok(Ok(event)) => {
+                    data_received = true;
+                    connection_established = true;
+                    
+                    // Log the type of data received for debugging
+                    match &event {
+                        PolyEvent::Book { asset_id, .. } => {
+                            println!("✅ Order book data received for {}", asset_id);
+                            info!("Received initial order book for asset: {}", asset_id);
+                        }
+                        PolyEvent::Trade { asset_id, .. } => {
+                            println!("✅ Trade data received for {}", asset_id);
+                            info!("Received trade data for asset: {}", asset_id);
+                        }
+                        PolyEvent::PriceChange { asset_id, .. } => {
+                            println!("✅ Price update received for {}", asset_id);
+                            info!("Received price change for asset: {}", asset_id);
+                        }
+                        _ => {
+                            println!("✅ WebSocket data received");
+                            info!("Received WebSocket event: {:?}", event);
+                        }
+                    }
+                    break;
+                }
+                Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(_))) => {
+                    // Channel is lagged, but connection is working
+                    println!("✅ WebSocket connection active (catching up on events)");
+                    connection_established = true;
+                    break;
+                }
+                Ok(Err(tokio::sync::broadcast::error::RecvError::Closed)) => {
+                    // Channel closed - this is a problem
+                    let error_msg = "WebSocket event channel closed unexpectedly";
+                    error!("{}", error_msg);
+                    print!("\r                                                    \r");
+                    println!("❌ {}", error_msg);
+                    return Err(anyhow::anyhow!("WebSocket connection failed: {}", error_msg));
+                }
+                Err(_) => {
+                    // Timeout on this check interval - update progress
+                    elapsed += check_interval;
+                    
+                    // Update progress indicator
+                    progress_dots = (progress_dots + 1) % 4;
+                    let dots = ".".repeat(progress_dots + 1);
+                    let spaces = " ".repeat(3 - progress_dots);
+                    print!("\r⏳ Waiting for WebSocket data{}{} ({:.1}s)", dots, spaces, elapsed.as_secs_f32());
+                    std::io::Write::flush(&mut std::io::stdout()).unwrap_or(());
+                }
+            }
+        }
+        
+        // Clear the progress line
+        print!("\r                                                    \r");
+        std::io::Write::flush(&mut std::io::stdout()).unwrap_or(());
+        
+        if !data_received {
+            // Check if we have any order books from REST API sync as fallback
+            let order_books = streamer.get_all_order_books();
+            if !order_books.is_empty() {
+                println!("ℹ️  No real-time data yet, but {} order books available from REST API", order_books.len());
+                info!("Proceeding with {} order books from REST API", order_books.len());
+                connection_established = true;
+            }
+        }
+        
+        if !connection_established {
+            let error_msg = "No WebSocket data received within timeout period";
+            error!("{}", error_msg);
+            println!("❌ {}", error_msg);
+            println!("🔍 Troubleshooting suggestions:");
+            println!("   • Check network connection");
+            println!("   • Verify asset IDs are correct and active");
+            println!("   • Check if markets are currently trading");
+            println!("   • Try with fewer assets if subscribing to many");
+            println!("   • Use --verbose flag for detailed logs");
+            println!("   • Check logs: {}", crate::data_paths::DataPaths::new("./data").logs().display());
+            
+            // Allow users to bypass with environment variable for debugging
+            if std::env::var("POLYBOT_SKIP_DATA_WAIT").is_ok() {
+                println!("⚠️  POLYBOT_SKIP_DATA_WAIT set - continuing anyway");
+                warn!("Bypassing data wait due to POLYBOT_SKIP_DATA_WAIT environment variable");
+            } else {
+                return Err(anyhow::anyhow!(
+                    "WebSocket timeout: {}. Set POLYBOT_SKIP_DATA_WAIT=1 to bypass this check.", 
+                    error_msg
+                ));
+            }
+        }
+        
+        if data_received {
+            println!("🎯 Real-time data stream established successfully");
+            info!("Real-time WebSocket data stream is active");
+        } else {
+            println!("⚠️  Starting with REST API data, real-time updates may follow");
+            info!("Starting TUI with REST API data only");
+        }
+        
+        Ok(())
     }
 }
 

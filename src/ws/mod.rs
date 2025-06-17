@@ -11,6 +11,7 @@
 pub mod client;
 pub mod events;
 pub mod state;
+pub mod types;
 
 pub use client::*;
 pub use events::*;

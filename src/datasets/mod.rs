@@ -8,9 +8,11 @@ use std::path::{Path, PathBuf};
 use std::fs;
 
 pub mod manager;
+pub mod selection;
 pub mod tui;
 
 pub use manager::*;
+pub use selection::*;
 pub use tui::*;
 
 /// Comprehensive dataset information with enhanced metadata
@@ -175,6 +177,8 @@ pub enum DatasetType {
     AnalyzedMarkets { source_dataset: String, filter_count: Option<usize> },
     /// Output from enrich command (enriched with real-time data)
     EnrichedMarkets { source_dataset: String, enrichment_types: Vec<EnrichmentType> },
+    /// User-created token selections
+    TokenSelection { name: String, token_count: usize },
     /// Mixed dataset with multiple command outputs
     Mixed { components: Vec<String> },
     /// Unknown/unidentified dataset
@@ -395,6 +399,9 @@ impl DatasetType {
                     format!("Enriched Markets from {} ({})", source_dataset, types)
                 }
             },
+            DatasetType::TokenSelection { name, token_count } => {
+                format!("Token Selection: {} ({} tokens)", name, token_count)
+            },
             DatasetType::Mixed { components } => {
                 if components.is_empty() {
                     "Mixed Output".to_string()
@@ -413,6 +420,7 @@ impl DatasetType {
             DatasetType::MarketData { .. } => "📄",
             DatasetType::AnalyzedMarkets { .. } => "📊",
             DatasetType::EnrichedMarkets { .. } => "✨",
+            DatasetType::TokenSelection { .. } => "⭐",
             DatasetType::Mixed { .. } => "🔄",
             DatasetType::Unknown => "❓",
         }

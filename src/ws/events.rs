@@ -151,19 +151,20 @@ pub enum OrderStatus {
 #[derive(Debug, Deserialize)]
 pub struct BookEvent {
     pub asset_id: String,
-    #[serde(rename = "buys", deserialize_with = "deserialize_order_levels")]
+    #[serde(alias = "buys", alias = "bids", deserialize_with = "deserialize_order_levels")]
     pub bids: Vec<PriceLevel>,
-    #[serde(rename = "sells", deserialize_with = "deserialize_order_levels")]
+    #[serde(alias = "sells", alias = "asks", deserialize_with = "deserialize_order_levels")]
     pub asks: Vec<PriceLevel>,
+    #[serde(default)]
     pub hash: String,
 }
 
 /// Order level for book events  
 #[derive(Debug, Deserialize)]
 struct OrderLevel {
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     price: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     size: Decimal,
 }
 
@@ -177,10 +178,10 @@ pub struct PriceChangeEvent {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PriceChange {
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
     pub side: Side,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
 }
 
@@ -188,7 +189,7 @@ pub struct PriceChange {
 #[derive(Debug, Deserialize)]
 pub struct TickSizeChangeEvent {
     pub asset_id: String,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub tick_size: Decimal,
 }
 
@@ -196,9 +197,9 @@ pub struct TickSizeChangeEvent {
 #[derive(Debug, Deserialize)]
 pub struct TradeEvent {
     pub asset_id: String,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
     pub side: Side,
     pub timestamp: u64,
@@ -211,11 +212,11 @@ pub struct UserOrderEvent {
     pub asset_id: String,
     pub _market: String,
     pub side: Side,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string", alias = "size_matched")]
+    #[serde(deserialize_with = "_deserialize_decimal_string", alias = "size_matched")]
     pub _filled_size: Decimal,
     pub status: OrderStatus,
     #[serde(rename = "type")]
@@ -231,9 +232,9 @@ pub struct UserTradeEvent {
     pub asset_id: String,
     pub _market: String,
     pub side: Side,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
     pub timestamp: u64,
     pub _status: String,  // MINED, CONFIRMED, RETRYING, FAILED
@@ -250,13 +251,69 @@ where
 
 
 /// Helper function to deserialize decimal from string
-fn deserialize_decimal_string<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+fn _deserialize_decimal_string<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
 where
     D: Deserializer<'de>,
 {
     let s: String = Deserialize::deserialize(deserializer)?;
     s.parse::<Decimal>()
         .map_err(|_| serde::de::Error::custom("Invalid decimal format"))
+}
+
+/// Helper function to deserialize decimal from either string or number
+fn deserialize_decimal_flexible<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::{Visitor, Error};
+    use std::fmt;
+
+    struct DecimalVisitor;
+
+    impl<'de> Visitor<'de> for DecimalVisitor {
+        type Value = Decimal;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a decimal number as string or number")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            value.parse::<Decimal>()
+                .map_err(|_| E::custom(format!("Invalid decimal string: {}", value)))
+        }
+
+        fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Decimal::try_from(value)
+                .map_err(|_| E::custom(format!("Invalid decimal number: {}", value)))
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Ok(Decimal::from(value))
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Ok(Decimal::from(value))
+        }
+    }
+
+    deserializer.deserialize_any(DecimalVisitor)
+}
+
+/// Default hash value for book events when hash field is missing
+fn _default_hash() -> String {
+    "unknown".to_string()
 }
 
 /// Parse a raw WebSocket message into typed events
@@ -267,7 +324,12 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
         "book" => {
             let event: BookEvent = serde_json::from_value(msg.data.clone())
                 .map_err(|e| {
-                    error!(error = %e, event_type = "book", "Failed to parse book event");
+                    error!(error = %e, event_type = "book", raw_data = ?msg.data, "Failed to parse book event");
+                    // Log the keys available in the data to help debug
+                    if let Some(obj) = msg.data.as_object() {
+                        let keys: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
+                        error!(available_keys = ?keys, "Available keys in book event");
+                    }
                     EventError::InvalidFormat(e.to_string())
                 })?;
             

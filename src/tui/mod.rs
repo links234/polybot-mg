@@ -19,6 +19,9 @@ pub mod portfolio_view;
 pub mod portfolio_simple;
 pub mod index;
 pub mod markets;
+pub mod dataset_selector;
+pub mod selection_builder;
+pub mod selections_menu;
 
 pub use app::{App, AppState};
 pub use events::EventHandler;
@@ -26,6 +29,11 @@ pub use index::IndexTui;
 pub use markets::MarketsTui;
 // pub use portfolio_view::{PortfolioViewState, run_portfolio_tui};
 // pub use portfolio_simple::display_portfolio_simple;
+//pub use dataset_selector::{DatasetSelector, DatasetSelectorResult};
+#[allow(unused_imports)]
+pub use selection_builder::{SelectionBuilder, SelectionBuilderResult};
+#[allow(unused_imports)]
+pub use selections_menu::{SelectionsMenu, SelectionsMenuResult};
 
 // Re-export progress types from indexing module
 #[derive(Debug, Clone)]

@@ -14,6 +14,7 @@ pub mod ws;
 pub mod services;
 pub mod pipeline;
 pub mod datasets;
+pub mod storage;
 pub mod tui;
 pub mod typed_store;
 pub mod file_store;

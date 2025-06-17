@@ -54,6 +54,11 @@ impl DataPaths {
         self.root.join(LOGS_DIR)
     }
     
+    /// Get the root data directory
+    pub fn data(&self) -> PathBuf {
+        self.root.clone()
+    }
+    
     /// Ensure all directories exist
     pub fn ensure_directories(&self) -> std::io::Result<()> {
         std::fs::create_dir_all(&self.root)?;

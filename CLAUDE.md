@@ -13,11 +13,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. **Type Safety**: Always prefer strongly typed programming, use enums and structs over primitives
 4. **Rust Only**: This is a Rust-only project - no mixing with other languages
 5. **Documentation**: Always write and update READMEs for each component (every folder should have README.md, referenced in mod.rs if present)
-6. **README Content Policy**: Never add Security, Disclaimer, or similar sections to README.md unless explicitly requested by user
-7. **File Size Limits**: Keep files below 700-1000 lines (1000 in extreme cases, most <700 lines)
-8. **Idiomatic Rust**: Use `impl` methods on `struct`s directly instead of standalone functions
-9. **Comprehensive Logging**: Write good debug, info, warn and error logs (written to file) for debugging reference
-10. **Never Modify Cargo.toml Versions**: Never change version numbers in Cargo.toml unless explicitly requested by user
+6. **Documentation Structure**: Follow the established docs/ hierarchy - see Documentation Organization section below
+7. **README Content Policy**: Never add Security, Disclaimer, or similar sections to README.md unless explicitly requested by user
+8. **File Size Limits**: Keep files below 700-1000 lines (1000 in extreme cases, most <700 lines)
+9. **Idiomatic Rust**: Use `impl` methods on `struct`s directly instead of standalone functions
+10. **Comprehensive Logging**: Write good debug, info, warn and error logs (written to file) for debugging reference
+11. **Never Modify Cargo.toml Versions**: Never change version numbers in Cargo.toml unless explicitly requested by user
 
 ### Code Quality Standards
 
@@ -37,6 +38,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **For Methods/Functions**: Prefix with underscore if unused
 - **Zero Warnings Policy**: Code must compile with absolutely zero warnings
 
+### Naming Conventions
+
+- **Structs**: Use PascalCase, NEVER underscores → `OrderBook`, `MarketData`, `PriceLevel`
+- **Enums**: Use PascalCase, NEVER underscores → `OrderStatus`, `EventType`, `MarketState`
+- **Functions**: Use snake_case but avoid underscores in names when possible → `calculate_spread()`, `get_price()`
+- **Methods**: Use snake_case but avoid underscores in names when possible → `update_orderbook()`, `validate_order()`
+- **Variables**: Use snake_case → `market_id`, `order_book`, `price_level`
+- **Constants**: Use SCREAMING_SNAKE_CASE → `MAX_ORDER_SIZE`, `DEFAULT_TIMEOUT`
+- **Modules**: Use snake_case → `order_management`, `market_data`, `websocket_client`
+- **Underscores ONLY for**: Function parameters, struct fields, and local variables when following Rust conventions
+- **Avoid underscores in**: Type names (structs, enums, traits), function names, method names unless absolutely necessary
+
 ### Anti-Patterns to Avoid
 
 - ❌ `Vec<(Decimal, Decimal)>` → ✅ `Vec<PriceLevel>` with named fields
@@ -45,6 +58,54 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ❌ Bash scripts → ✅ Cargo commands and CLI tools
 - ❌ Large monolithic files → ✅ Well-organized, focused modules
 - ❌ Modifying Cargo.toml versions → ✅ Leave version management to project maintainer
+
+## Documentation Organization
+
+### Structured Documentation Hierarchy
+
+All documentation MUST follow the established `docs/` directory structure:
+
+```
+docs/
+├── README.md                           # Main documentation index
+├── architecture/
+│   ├── README.md                      # Architecture overview
+│   └── data-structure.md              # Data structures and storage
+├── development/
+│   ├── README.md                      # Development guide
+│   ├── testing-stream-tui.md          # TUI testing procedures
+│   └── tui-test-instructions.md       # Detailed TUI test instructions
+├── features/
+│   ├── README.md                      # Features overview
+│   ├── analyze-command-filters.md     # Market analysis filters
+│   ├── dataset-selector.md            # Dataset selection system
+│   ├── stream-improvements.md         # Streaming enhancements
+│   └── tui-implementation.md          # TUI implementation details
+└── troubleshooting/
+    ├── README.md                      # Troubleshooting guide
+    └── stream-error-fixes.md          # Stream-specific error fixes
+```
+
+### Documentation Creation Rules
+
+1. **NEVER create documentation outside the `docs/` hierarchy**
+2. **Always place new docs in the appropriate subdirectory**:
+   - `docs/architecture/` - System design, data structures, technical architecture
+   - `docs/development/` - Development guides, setup, testing procedures
+   - `docs/features/` - Feature specifications, implementation details
+   - `docs/troubleshooting/` - Error resolution, debugging guides
+3. **Each subdirectory MUST have a `README.md` that serves as an index**
+4. **Use descriptive filenames with hyphens**: `feature-name.md`, not `feature_name.md`
+5. **Only create documentation when explicitly requested by user**
+6. **Update relevant `README.md` indices when adding new docs**
+
+### Documentation Writing Guidelines
+
+- **Concise and actionable** - focus on implementation details
+- **Technical depth** - assume reader has development knowledge
+- **Code examples** - include relevant Rust code snippets
+- **Clear structure** - use consistent markdown formatting
+- **Cross-references** - link to related documentation when relevant
 
 ## Project Overview
 

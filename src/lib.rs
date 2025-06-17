@@ -11,4 +11,5 @@ pub mod ws;
 pub mod services;
 pub mod pipeline;
 pub mod datasets;
+// pub mod storage;  // Temporarily commented out due to missing bincode dependency
 pub mod tui;

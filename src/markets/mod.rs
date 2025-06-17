@@ -12,7 +12,7 @@ mod utils;
 mod cache;
 mod storage;
 mod providers;
-mod fetcher;
+pub mod fetcher;
 mod analyze;
 mod enrich;
 

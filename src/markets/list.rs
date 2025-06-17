@@ -13,10 +13,6 @@ pub async fn list_markets(
     // Fetch markets from API - get_markets returns a Value
     let markets_response = client.get_markets(None).await?;
     
-    // Debug: Print the raw response
-    println!("\n{}", "🔍 Debug - Raw API Response:".bright_yellow());
-    println!("{}", serde_json::to_string_pretty(&markets_response)?);
-    
     // Check if the response is directly an array or wrapped in an object
     let markets = if let Some(array) = markets_response.as_array() {
         // Response is directly an array
@@ -30,11 +26,6 @@ pub async fn list_markets(
         markets_field.as_array()
             .ok_or_else(|| anyhow::anyhow!("Expected 'markets' field to be an array"))?
     } else {
-        // Print the structure to help debug
-        println!("\n{}", "❌ Unexpected response structure:".bright_red());
-        if let Some(obj) = markets_response.as_object() {
-            println!("Response is an object with keys: {:?}", obj.keys().collect::<Vec<_>>());
-        }
         return Err(anyhow::anyhow!("Expected markets array in response"));
     };
     

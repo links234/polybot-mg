@@ -33,6 +33,7 @@ use commands::pipeline::{PipelineArgs, PipelineCommand};
 use commands::datasets::{DatasetsArgs, DatasetsCommand};
 use commands::install::{InstallArgs, InstallCommand};
 use commands::version::{VersionArgs, VersionCommand};
+use commands::index::{IndexArgs, IndexCommand};
 
 #[derive(Parser)]
 #[command(name = "polybot")]
@@ -104,6 +105,9 @@ pub enum Commands {
     
     /// Show version information
     Version(VersionArgs),
+    
+    /// Index raw market data into RocksDB for fast queries
+    Index(IndexArgs),
 }
 
 impl Cli {
@@ -141,6 +145,7 @@ impl Cli {
             Commands::Datasets(args) => DatasetsCommand::new(args).execute(host, data_paths).await,
             Commands::Install(args) => InstallCommand::new(args).execute(host, data_paths).await,
             Commands::Version(args) => VersionCommand::new(args).execute(host, data_paths).await,
+            Commands::Index(args) => IndexCommand::new(args).execute(host, data_paths).await,
         }
     }
 } 

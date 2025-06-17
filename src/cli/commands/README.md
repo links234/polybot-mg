@@ -191,6 +191,38 @@ impl Command {
 - **Usage**: `polybot datasets`
 - **Integration**: Works with pipeline outputs and data management
 
+### Data Management
+
+#### `index` - Database Indexing
+- **Purpose**: Index raw market data into RocksDB for fast queries with parallel processing
+- **Key Features**:
+  - **Parallel File Processing**: Process multiple files simultaneously using Rayon
+  - **Multi-threaded Parsing**: Parse markets within files using thread pool
+  - **Batched Database Writes**: Efficient batch operations to minimize I/O
+  - **Interactive TUI**: File selection and real-time progress tracking
+  - **Thread Control**: Specify thread count or use auto-detection
+- **Arguments**:
+  - `--rocksdb`: Use RocksDB storage (TypedDbContext with column families)
+  - `--chunk-files <files>`: Comma-separated list of specific files to index
+  - `--source-dir <dir>`: Directory containing market JSON chunks
+  - `--clear`: Clear existing database before indexing
+  - `--batch-size <n>`: Batch size for RocksDB writes (default: 1000)
+  - `--threads <n>`: Number of parallel threads (0 = auto-detect)
+  - `--skip-duplicates`: Skip duplicate markets (default: true)
+  - `--detailed`: Show detailed progress information
+- **Usage**:
+  ```bash
+  polybot index --rocksdb                    # Interactive TUI with auto parallelism
+  polybot index --rocksdb --threads 8        # Use 8 threads
+  polybot index --rocksdb --clear            # Clear and rebuild database
+  polybot index --rocksdb --batch-size 2000  # Larger batches for faster writes
+  ```
+- **Performance**:
+  - Saturates CPU with parallel market parsing
+  - Maximizes disk I/O with batched writes
+  - Typically 3-5x faster than single-threaded
+- **Integration**: Provides indexed data for fast market queries
+
 ### Development & Testing
 
 #### `tui_test` - TUI Testing

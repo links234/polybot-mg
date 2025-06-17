@@ -14,6 +14,8 @@ pub mod buy;
 pub mod sell;
 pub mod cancel;
 pub mod orders;
+pub mod portfolio;
+pub mod portfolio_tui;
 pub mod fetch_all_markets;
 pub mod analyze;
 pub mod enrich;

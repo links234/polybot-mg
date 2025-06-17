@@ -209,12 +209,18 @@ pub struct TradeEvent {
 pub struct UserOrderEvent {
     pub order_id: String,
     pub asset_id: String,
+    pub _market: String,
     pub side: Side,
     #[serde(deserialize_with = "deserialize_decimal_string")]
     pub price: Decimal,
     #[serde(deserialize_with = "deserialize_decimal_string")]
     pub size: Decimal,
+    #[serde(deserialize_with = "deserialize_decimal_string", alias = "size_matched")]
+    pub _filled_size: Decimal,
     pub status: OrderStatus,
+    #[serde(rename = "type")]
+    pub _order_type: String,  // PLACEMENT, UPDATE, CANCELLATION
+    pub _timestamp: u64,
 }
 
 /// User trade event
@@ -223,12 +229,14 @@ pub struct UserTradeEvent {
     pub trade_id: String,
     pub order_id: String,
     pub asset_id: String,
+    pub _market: String,
     pub side: Side,
     #[serde(deserialize_with = "deserialize_decimal_string")]
     pub price: Decimal,
     #[serde(deserialize_with = "deserialize_decimal_string")]
     pub size: Decimal,
     pub timestamp: u64,
+    pub _status: String,  // MINED, CONFIRMED, RETRYING, FAILED
 }
 
 /// Helper function to deserialize order levels from Polymarket book events

@@ -15,6 +15,10 @@ pub mod app;
 pub mod ui;
 pub mod events;
 pub mod widgets;
+pub mod portfolio_view;
+pub mod portfolio_simple;
 
 pub use app::{App, AppState};
 pub use events::EventHandler;
+// pub use portfolio_view::{PortfolioViewState, run_portfolio_tui};
+// pub use portfolio_simple::display_portfolio_simple;

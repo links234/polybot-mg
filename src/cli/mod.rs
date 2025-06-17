@@ -27,6 +27,7 @@ use commands::buy::{BuyArgs, BuyCommand};
 use commands::sell::{SellArgs, SellCommand};
 use commands::cancel::{CancelArgs, CancelCommand};
 use commands::orders::{OrdersArgs, OrdersCommand};
+use commands::portfolio::PortfolioArgs;
 use commands::stream::{StreamArgs, StreamCommand};
 use commands::daemon::{DaemonArgs, DaemonCommand};
 use commands::pipeline::{PipelineArgs, PipelineCommand};
@@ -87,6 +88,9 @@ pub enum Commands {
     /// List open orders
     Orders(OrdersArgs),
     
+    /// Monitor portfolio and positions with real-time updates
+    Portfolio(PortfolioArgs),
+    
     /// Stream real-time market data via WebSocket
     Stream(StreamArgs),
     
@@ -135,6 +139,7 @@ impl Cli {
             Commands::Sell(args) => SellCommand::new(args).execute(host, data_paths).await,
             Commands::Cancel(args) => CancelCommand::new(args).execute(host, data_paths).await,
             Commands::Orders(args) => OrdersCommand::new(args).execute(host, data_paths).await,
+            Commands::Portfolio(args) => commands::portfolio::portfolio(args, host, data_paths).await,
             Commands::Stream(args) => StreamCommand::new(args).execute(host, data_paths).await,
             Commands::Daemon(args) => DaemonCommand::new(args).execute(host, data_paths).await,
             Commands::Pipeline(args) => PipelineCommand::new(args).execute(host, data_paths).await,

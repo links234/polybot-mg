@@ -2,13 +2,16 @@ use anyhow::Result;
 use clap::Parser;
 
 mod auth;
+mod auth_env;
 mod config;
+mod ethereum_utils;
 mod markets;
 mod cli;
 mod data_paths;
 mod ws;
 mod services;
 mod pipeline;
+mod portfolio;
 mod datasets;
 mod errors;
 mod execution;

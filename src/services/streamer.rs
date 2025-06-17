@@ -88,6 +88,25 @@ impl Streamer {
             user_task: None,
         }
     }
+    
+    /// Create with default config
+    pub fn _default() -> Self {
+        Self::new(StreamerConfig::default())
+    }
+    
+    /// Set user feed credentials
+    pub fn _set_user_credentials(&mut self, api_key: String, api_secret: String, api_passphrase: String) {
+        self.config.user_auth = Some(AuthPayload {
+            api_key,
+            secret: api_secret,
+            passphrase: api_passphrase,
+        });
+    }
+    
+    /// Set user markets to subscribe to
+    pub fn _set_user_markets(&mut self, markets: Vec<String>) {
+        self.config.user_markets = Some(markets);
+    }
 
     /// Start the streaming service
     pub async fn start(

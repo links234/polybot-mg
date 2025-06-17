@@ -41,19 +41,31 @@ pub async fn init_auth(host: &str, data_paths: &DataPaths, private_key_hex: &str
 
 /// Get an authenticated client with saved credentials
 pub async fn get_authenticated_client(host: &str, data_paths: &DataPaths) -> Result<ClobClient> {
+    info!("Creating authenticated client for host: {}", host);
+    
     // Load saved credentials
     let api_creds = config::load_credentials(data_paths).await
         .map_err(|e| anyhow!("Failed to load credentials. Run 'polybot init' first: {}", e))?;
+    
+    info!("Loaded API credentials successfully");
     
     // Load private key
     let private_key = config::load_private_key(data_paths).await
         .map_err(|e| anyhow!("Failed to load private key. Run 'polybot init' first: {}", e))?;
     
+    info!("Loaded private key successfully");
+    
+    // Determine chain ID based on host
+    let chain_id = if host.contains("mumbai") { 80001 } else { 137 };
+    info!("Using chain ID: {}", chain_id);
+    
     // Create client with L1 headers (this sets up the signer)
-    let mut client = ClobClient::with_l1_headers(host, &private_key, 137);
+    let mut client = ClobClient::with_l1_headers(host, &private_key, chain_id);
     
     // Set the API credentials for L2 authentication
     client.set_api_creds(api_creds);
+    
+    info!("Client created successfully");
     
     Ok(client)
 }

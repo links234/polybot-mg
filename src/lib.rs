@@ -1,11 +1,14 @@
 pub mod auth;
+pub mod auth_env;
 pub mod cli;
 pub mod config;
 pub mod data_paths;
 pub mod errors;
+pub mod ethereum_utils;
 pub mod execution;
 pub mod logging;
 pub mod markets;
+pub mod portfolio;
 pub mod types;
 pub mod ws;
 pub mod services;

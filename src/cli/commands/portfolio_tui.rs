@@ -22,31 +22,39 @@ use std::{
 };
 
 use crate::portfolio::orders_api::PolymarketOrder;
+use crate::portfolio::Position;
 use rust_decimal::Decimal;
 
 pub struct App {
     pub user_address: String,
     pub orders: Vec<PolymarketOrder>,
+    pub positions: Vec<Position>,
     pub current_tab: usize,
     pub orders_state: TableState,
-    pub _positions_state: TableState,
+    pub positions_state: TableState,
     pub _scroll: u16,
     pub should_quit: bool,
 }
 
 impl App {
-    pub fn new(user_address: String, orders: Vec<PolymarketOrder>) -> Self {
+    pub fn new(user_address: String, orders: Vec<PolymarketOrder>, positions: Vec<Position>) -> Self {
         let mut orders_state = TableState::default();
         if !orders.is_empty() {
             orders_state.select(Some(0));
         }
         
+        let mut positions_state = TableState::default();
+        if !positions.is_empty() {
+            positions_state.select(Some(0));
+        }
+        
         Self {
             user_address,
             orders,
+            positions,
             current_tab: 0,
             orders_state,
-            _positions_state: TableState::default(),
+            positions_state,
             _scroll: 0,
             should_quit: false,
         }
@@ -99,11 +107,45 @@ impl App {
         };
         self.orders_state.select(Some(i));
     }
+    
+    pub fn next_position(&mut self) {
+        if self.positions.is_empty() {
+            return;
+        }
+        let i = match self.positions_state.selected() {
+            Some(i) => {
+                if i >= self.positions.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.positions_state.select(Some(i));
+    }
+
+    pub fn previous_position(&mut self) {
+        if self.positions.is_empty() {
+            return;
+        }
+        let i = match self.positions_state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.positions.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.positions_state.select(Some(i));
+    }
 }
 
-pub async fn run_portfolio_tui(user_address: String, orders: Vec<PolymarketOrder>) -> Result<()> {
+pub async fn run_portfolio_tui(user_address: String, orders: Vec<PolymarketOrder>, positions: Vec<Position>) -> Result<()> {
     // Create app
-    let mut app = App::new(user_address, orders);
+    let mut app = App::new(user_address, orders, positions);
     
     // Setup terminal
     let mut terminal = setup_terminal().context("Failed to setup terminal")?;
@@ -153,11 +195,15 @@ async fn run_app(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app: &mut Ap
                     KeyCode::Down | KeyCode::Char('j') => {
                         if app.current_tab == 0 {
                             app.next_order();
+                        } else if app.current_tab == 1 {
+                            app.next_position();
                         }
                     }
                     KeyCode::Up | KeyCode::Char('k') => {
                         if app.current_tab == 0 {
                             app.previous_order();
+                        } else if app.current_tab == 1 {
+                            app.previous_position();
                         }
                     }
                     _ => {}
@@ -369,23 +415,100 @@ fn render_orders(f: &mut Frame, area: Rect, app: &App) {
     f.render_stateful_widget(t, area, &mut app.orders_state.clone());
 }
 
-fn render_positions(f: &mut Frame, area: Rect, _app: &App) {
-    let text = vec![
-        Line::from(""),
-        Line::from("No positions found.".dark_gray().italic()),
-        Line::from(""),
-        Line::from("Positions will appear here once your orders are filled.".dark_gray()),
-    ];
+fn render_positions(f: &mut Frame, area: Rect, app: &App) {
+    use crate::portfolio::{PositionSide, PositionStatus};
     
-    let paragraph = Paragraph::new(text)
+    if app.positions.is_empty() {
+        let text = vec![
+            Line::from(""),
+            Line::from("No positions found.".dark_gray().italic()),
+            Line::from(""),
+            Line::from("Positions will appear here once your orders are filled.".dark_gray()),
+        ];
+        
+        let paragraph = Paragraph::new(text)
+            .block(Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .title(" Positions "))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
+        
+        f.render_widget(paragraph, area);
+        return;
+    }
+
+    let header = Row::new(vec![
+        Cell::from("Market").style(Style::default().fg(Color::Gray).bold()),
+        Cell::from("Outcome").style(Style::default().fg(Color::Gray).bold()),
+        Cell::from("Side").style(Style::default().fg(Color::Gray).bold()),
+        Cell::from("Size").style(Style::default().fg(Color::Gray).bold()),
+        Cell::from("Avg Price").style(Style::default().fg(Color::Gray).bold()),
+        Cell::from("P&L").style(Style::default().fg(Color::Gray).bold()),
+        Cell::from("Status").style(Style::default().fg(Color::Gray).bold()),
+    ]).height(1);
+
+    let rows: Vec<Row> = app.positions.iter().enumerate().map(|(i, position)| {
+        let market_short = if position.market_id.len() > 20 {
+            format!("{}...", &position.market_id[..20])
+        } else {
+            position.market_id.clone()
+        };
+
+        let side_cell = match position.side {
+            PositionSide::Long => Cell::from("LONG").style(Style::default().fg(Color::Green)),
+            PositionSide::Short => Cell::from("SHORT").style(Style::default().fg(Color::Red)),
+        };
+
+        let pnl = position.total_pnl();
+        let pnl_cell = if pnl >= Decimal::ZERO {
+            Cell::from(format!("+${:.2}", pnl)).style(Style::default().fg(Color::Green))
+        } else {
+            Cell::from(format!("-${:.2}", pnl.abs())).style(Style::default().fg(Color::Red))
+        };
+
+        let status_cell = match position.status {
+            PositionStatus::Open => Cell::from("OPEN").style(Style::default().fg(Color::Green)),
+            PositionStatus::Closed => Cell::from("CLOSED").style(Style::default().fg(Color::Blue)),
+            PositionStatus::Liquidated => Cell::from("LIQUIDATED").style(Style::default().fg(Color::Red)),
+        };
+
+        let row = Row::new(vec![
+            Cell::from(market_short),
+            Cell::from(position.outcome.clone()),
+            side_cell,
+            Cell::from(format!("{:.2}", position.size)),
+            Cell::from(format!("${:.4}", position.average_price)),
+            pnl_cell,
+            status_cell,
+        ]).height(1);
+
+        if app.current_tab == 1 && app.positions_state.selected() == Some(i) {
+            row.style(Style::default().bg(Color::DarkGray))
+        } else {
+            row
+        }
+    }).collect();
+
+    let widths = [
+        Constraint::Length(22),
+        Constraint::Length(10),
+        Constraint::Length(6),
+        Constraint::Length(10),
+        Constraint::Length(12),
+        Constraint::Length(12),
+        Constraint::Length(10),
+    ];
+
+    let table = Table::new(rows, widths)
+        .header(header)
         .block(Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .title(" Positions "))
-        .alignment(Alignment::Center)
-        .wrap(Wrap { trim: true });
-    
-    f.render_widget(paragraph, area);
+            .title(format!(" Positions ({}) ", app.positions.len())))
+        .row_highlight_style(Style::default().add_modifier(Modifier::BOLD));
+
+    f.render_stateful_widget(table, area, &mut app.positions_state.clone());
 }
 
 fn render_order_details(f: &mut Frame, area: Rect, app: &App) {

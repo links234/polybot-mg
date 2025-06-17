@@ -2,10 +2,12 @@
 
 use anyhow::{Result, anyhow};
 use clap::Args;
+use chrono::Utc;
 use crate::data_paths::DataPaths;
 use crate::config;
 use crate::ethereum_utils;
 use crate::portfolio::orders_api::{PolymarketOrder, build_auth_headers, fetch_balance};
+use crate::portfolio::{PortfolioStorage, PositionReconciler, AccountBalances, PortfolioSnapshot};
 use crate::cli::commands::portfolio_tui::run_portfolio_tui;
 use tracing::{info, debug, warn};
 use serde_json;
@@ -58,17 +60,63 @@ pub async fn portfolio(args: PortfolioArgs, host: &str, data_paths: DataPaths) -
     
     info!("Fetching active orders for user {}", address);
     
+    // Initialize portfolio storage
+    let storage = PortfolioStorage::new(data_paths.root(), &address);
+    storage.init_directories().await?;
+    
     // Try to get orders using the authenticated client
     match fetch_orders_with_client(host, &data_paths, &args, &address).await {
         Ok(orders) => {
             info!("Successfully fetched {} orders", orders.len());
             
+            // Save active orders to storage
+            storage.save_active_orders(&orders).await?;
+            
+            // Reconcile positions from orders
+            let mut reconciler = PositionReconciler::new();
+            let positions = reconciler.reconcile_from_orders(&orders)?;
+            info!("Reconciled {} positions from orders", positions.len());
+            
+            // Save positions
+            storage.save_positions(&positions).await?;
+            
+            // Calculate portfolio statistics
+            let stats = reconciler.calculate_stats();
+            
+            // Get account balances (use default for now since balance API is unreliable)
+            let balances = AccountBalances::default();
+            
+            // Create and save a snapshot
+            let snapshot = PortfolioSnapshot {
+                timestamp: Utc::now(),
+                address: address.clone(),
+                positions: positions.clone(),
+                active_orders: orders.clone(),
+                stats: stats.clone(),
+                balances: balances.clone(),
+                metadata: crate::portfolio::storage::SnapshotMetadata {
+                    version: "1.0".to_string(),
+                    reason: crate::portfolio::storage::SnapshotReason::Manual,
+                    previous_snapshot: None,
+                    previous_hash: None,
+                },
+            };
+            
+            let snapshot_file = storage.save_snapshot(&snapshot).await?;
+            info!("Saved portfolio snapshot: {}", snapshot_file);
+            
+            // Display portfolio information
+            println!("\n📁 Portfolio data saved to: {}", data_paths.root().join("trade").join("account").join(&address).display());
+            println!("📸 Latest snapshot: {}", snapshot_file);
+            println!("📊 Positions: {} | Orders: {}", positions.len(), orders.len());
+            
             if args.text {
                 // Simple text output
                 display_orders(orders.clone());
+                display_positions(&positions);
             } else {
                 // Interactive TUI
-                run_portfolio_tui(address.clone(), orders).await?;
+                run_portfolio_tui(address.clone(), orders, positions).await?;
             }
         },
         Err(e) => {
@@ -219,6 +267,87 @@ fn convert_orders_for_display(orders: &[PolymarketOrder]) -> Vec<OrderInfo> {
             status: order.status.clone(),
         }
     }).collect()
+}
+
+fn display_positions(positions: &[crate::portfolio::Position]) {
+    use crate::portfolio::PositionStatus;
+    
+    if positions.is_empty() {
+        println!("\n📊 No positions found");
+        return;
+    }
+    
+    println!("\n📊 Positions ({} total)\n", positions.len());
+    
+    // Header
+    println!("{:<35} {:<10} {:<8} {:<10} {:<10} {:<12} {:<12} {:<10}",
+             "Market", "Outcome", "Side", "Size", "Avg Price", "Current", "P&L", "Status");
+    println!("{}", "-".repeat(120));
+    
+    let mut total_pnl = rust_decimal::Decimal::ZERO;
+    
+    for position in positions {
+        let market_short = if position.market_id.len() > 32 {
+            format!("{}...", &position.market_id[..32])
+        } else {
+            position.market_id.clone()
+        };
+        
+        let side = match position.side {
+            crate::portfolio::PositionSide::Long => "LONG",
+            crate::portfolio::PositionSide::Short => "SHORT",
+        };
+        
+        let current_price = position.current_price
+            .map(|p| format!("${:.4}", p))
+            .unwrap_or_else(|| "N/A".to_string());
+        
+        let pnl = position.total_pnl();
+        total_pnl += pnl;
+        
+        let pnl_str = if pnl >= rust_decimal::Decimal::ZERO {
+            format!("+${:.2}", pnl)
+        } else {
+            format!("-${:.2}", pnl.abs())
+        };
+        
+        let status = match position.status {
+            PositionStatus::Open => "OPEN",
+            PositionStatus::Closed => "CLOSED",
+            PositionStatus::Liquidated => "LIQUIDATED",
+        };
+        
+        println!("{:<35} {:<10} {:<8} {:<10} ${:<9.4} {:<12} {:<12} {:<10}",
+                 market_short,
+                 position.outcome,
+                 side,
+                 format!("{:.2}", position.size),
+                 position.average_price,
+                 current_price,
+                 pnl_str,
+                 status);
+    }
+    
+    println!("{}", "-".repeat(120));
+    
+    let total_pnl_str = if total_pnl >= rust_decimal::Decimal::ZERO {
+        format!("+${:.2}", total_pnl)
+    } else {
+        format!("-${:.2}", total_pnl.abs())
+    };
+    
+    println!("Total P&L: {}", total_pnl_str);
+    
+    // Calculate some basic stats
+    let open_positions = positions.iter()
+        .filter(|p| p.status == PositionStatus::Open)
+        .count();
+    
+    let total_value: rust_decimal::Decimal = positions.iter()
+        .map(|p| p.size * p.average_price)
+        .sum();
+    
+    println!("Open Positions: {} | Total Value: ${:.2}", open_positions, total_value);
 }
 
 fn display_order_info(orders: Vec<OrderInfo>) {

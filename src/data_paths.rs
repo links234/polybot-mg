@@ -29,6 +29,10 @@ impl DataPaths {
         }
     }
     
+    /// Get the root data directory
+    pub fn root(&self) -> &PathBuf {
+        &self.root
+    }
     
     /// Get the datasets directory (default location for all dataset outputs)
     pub fn datasets(&self) -> PathBuf {

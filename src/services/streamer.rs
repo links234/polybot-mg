@@ -298,7 +298,23 @@ impl Streamer {
                 }
             }
             Err(e) => {
-                warn!("Failed to parse WebSocket message: {}", e);
+                error!("Failed to parse WebSocket message: {}", e);
+                
+                // Count parsing errors and potentially notify user in extreme cases
+                static PARSING_ERROR_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+                let error_count = PARSING_ERROR_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                
+                if error_count <= 5 {
+                    // Log detailed information for the first few errors
+                    error!("Parsing error #{}: {}", error_count, e);
+                    error!("This indicates a message format issue that may affect data quality");
+                } else if error_count == 10 {
+                    error!("Suppressing further parsing error details after 10 errors");
+                    error!("Continuing to process other messages, but data quality may be compromised");
+                } else if error_count % 100 == 0 {
+                    // Log every 100th error to track ongoing issues
+                    error!("Parsing error count reached {}, data stream may be corrupted", error_count);
+                }
             }
         }
     }
@@ -318,6 +334,17 @@ impl Streamer {
             }
             Err(e) => {
                 error!("Failed to parse user WebSocket message: {}", e);
+                
+                // Count user message parsing errors separately
+                static USER_PARSING_ERROR_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+                let error_count = USER_PARSING_ERROR_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                
+                if error_count <= 5 {
+                    error!("User message parsing error #{}: {}", error_count, e);
+                    error!("This may affect user order/trade visibility");
+                } else if error_count == 10 {
+                    error!("Suppressing further user parsing error details after 10 errors");
+                }
             }
         }
     }

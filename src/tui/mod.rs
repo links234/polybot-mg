@@ -15,12 +15,14 @@ pub mod app;
 pub mod ui;
 pub mod events;
 pub mod widgets;
-// Temporarily commented out due to missing storage module dependencies
-// pub mod dataset_selector_v2;
-// pub mod selection_builder;
-// pub mod selections_menu;
+pub mod dataset_selector;
+pub mod selection_builder;
+pub mod selections_menu;
 
 pub use app::{App, AppState};
+//pub use dataset_selector::{DatasetSelector, DatasetSelectorResult};
 pub use events::EventHandler;
-// pub use selection_builder::{SelectionBuilder, SelectionBuilderResult};
-// pub use selections_menu::{SelectionsMenu, SelectionsMenuResult};
+#[allow(unused_imports)]
+pub use selection_builder::{SelectionBuilder, SelectionBuilderResult};
+#[allow(unused_imports)]
+pub use selections_menu::{SelectionsMenu, SelectionsMenuResult};

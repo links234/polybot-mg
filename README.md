@@ -66,6 +66,15 @@ PK=your_private_key_hex
 RUST_ENV=production
 ```
 
+## Documentation
+
+📚 **[Complete Documentation](./docs/README.md)** - Comprehensive guides and references
+
+- **[Features](./docs/features/)** - Core functionality and feature documentation
+- **[Architecture](./docs/architecture/)** - System design and data structures  
+- **[Development](./docs/development/)** - Development guides and testing
+- **[Troubleshooting](./docs/troubleshooting/)** - Common issues and solutions
+
 ## Development
 
 ```bash

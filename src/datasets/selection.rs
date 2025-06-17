@@ -382,7 +382,7 @@ impl SelectionManager {
     }
     
     /// Save a selection
-    pub fn save_selection(&self, selection: &TokenSelection) -> Result<()> {
+    pub fn _save_selection(&self, selection: &TokenSelection) -> Result<()> {
         self.ensure_directory()?;
         
         let path = self.get_selection_path(&selection.name);
@@ -416,7 +416,7 @@ impl SelectionManager {
     }
     
     /// Get detailed information about all selections (both explicit and implicit)
-    pub fn get_all_selections_info(&self) -> Result<Vec<(TokenSelection, bool)>> {
+    pub fn _get_all_selections_info(&self) -> Result<Vec<(TokenSelection, bool)>> {
         let mut all_selections = Vec::new();
         
         // Get explicit selections
@@ -438,7 +438,7 @@ impl SelectionManager {
     }
     
     /// Create a new selection
-    pub fn create_selection(
+    pub fn _create_selection(
         &self,
         name: String,
         description: Option<String>,
@@ -474,7 +474,7 @@ impl SelectionManager {
     }
     
     /// Add tokens to an existing selection
-    pub fn add_tokens(&self, name: &str, tokens: Vec<String>) -> Result<()> {
+    pub fn _add_tokens(&self, name: &str, tokens: Vec<String>) -> Result<()> {
         let mut selection = self.load_selection(name)?;
         let now = Utc::now();
         
@@ -497,20 +497,20 @@ impl SelectionManager {
         }
         
         selection.modified_at = now;
-        self.save_selection(&selection)?;
+        self._save_selection(&selection)?;
         
         Ok(())
     }
     
     /// Remove tokens from a selection
-    pub fn remove_tokens(&self, name: &str, tokens: &[String]) -> Result<()> {
+    pub fn _remove_tokens(&self, name: &str, tokens: &[String]) -> Result<()> {
         let mut selection = self.load_selection(name)?;
         let tokens_set: HashSet<&str> = tokens.iter().map(|s| s.as_str()).collect();
         
         selection.tokens.retain(|t| !tokens_set.contains(t.token_id.as_str()));
         selection.modified_at = Utc::now();
         
-        self.save_selection(&selection)?;
+        self._save_selection(&selection)?;
         Ok(())
     }
     

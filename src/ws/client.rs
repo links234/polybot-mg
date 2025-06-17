@@ -194,11 +194,11 @@ impl WsClient {
     ) -> Result<(), WsError> {
         info!("Connecting to WebSocket: {}", url);
         
-        let (ws_stream, response) = connect_async(url).await?;
+        let (ws_stream, _response) = connect_async(url).await?;
         let (mut write, mut read) = ws_stream.split();
         
-        info!("WebSocket connected successfully. Status: {:?}", response.status());
-        debug!("Response headers: {:?}", response.headers());
+        info!("WebSocket connected successfully. Status: {:?}", _response.status());
+        debug!("Response headers: {:?}", _response.headers());
         
         // Set up heartbeat timer
         let mut heartbeat = interval(Duration::from_secs(config.heartbeat_interval));

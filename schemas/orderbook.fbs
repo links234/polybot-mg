@@ -1,0 +1,73 @@
+namespace polybot.flatbuffers;
+
+// Enums must be defined before use
+enum UpdateType : byte {
+  PriceChange = 0,
+  Trade = 1,
+  TickSizeChange = 2,
+  Clear = 3
+}
+
+enum Side : byte {
+  Bid = 0,
+  Ask = 1
+}
+
+// Price level in the orderbook
+table PriceLevel {
+  price: string (required);  // Using string for Decimal precision
+  size: string (required);   // Using string for Decimal precision
+}
+
+// Orderbook snapshot - initial state
+table OrderBookSnapshot {
+  token_id: string (required);
+  timestamp_utc: uint64;  // Unix timestamp in milliseconds
+  market: string;
+  outcome: string;
+  bids: [PriceLevel];
+  asks: [PriceLevel];
+  tick_size: string;
+  min_tick_size: string;
+  hash: string;  // Blake3 hash of the orderbook state
+}
+
+// Orderbook update - incremental changes
+table OrderBookUpdate {
+  token_id: string (required);
+  timestamp_utc: uint64;  // Unix timestamp in milliseconds
+  sequence_number: uint64;  // For ordering updates
+  update_type: UpdateType;
+  
+  // For price updates
+  side: Side;
+  price_levels: [PriceLevel];  // New or updated price levels
+  removed_prices: [string];    // Prices to remove
+  
+  // For trades
+  trade_price: string;
+  trade_size: string;
+  trade_id: string;
+  
+  // New tick sizes if changed
+  new_tick_size: string;
+  new_min_tick_size: string;
+  
+  // Updated hash after applying this update
+  hash: string;
+}
+
+// Session metadata stored separately
+table SessionMetadata {
+  session_id: string (required);
+  token_id: string (required);
+  start_timestamp: uint64;  // Start time in UTC (Unix timestamp in milliseconds)
+  end_timestamp: uint64;    // End time in UTC (Unix timestamp in milliseconds)
+  update_count: uint64;
+  market: string;
+  outcome: string;
+  file_version: uint32;  // For schema versioning
+}
+
+// Root type for snapshot files
+root_type OrderBookSnapshot;

@@ -13,6 +13,7 @@ mod datasets;
 mod errors;
 mod execution;
 mod logging;
+mod storage;
 mod tui;
 mod types;
 

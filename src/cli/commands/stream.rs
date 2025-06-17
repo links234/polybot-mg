@@ -115,17 +115,23 @@ impl StreamCommand {
         let logging_config = LoggingConfig::new(LogMode::FileOnly, data_paths.clone());
         init_logging(logging_config)?;
         
-        // Now use direct println! for nice console output without log prefixes
+        // Show nice header first before any potential errors
         println!("\n🚀 Starting Polymarket WebSocket Stream");
         println!("═══════════════════════════════════════════");
         
-        // Load assets and show progress
-        let assets = self.get_assets_for_streaming(&data_paths).await?;
+        // Load assets - this might trigger the interactive selector
+        let assets = match self.get_assets_for_streaming(&data_paths).await {
+            Ok(assets) => assets,
+            Err(e) => {
+                // Show the error after the nice header
+                println!("\n❌ {}", e);
+                return Err(e);
+            }
+        };
 
         if assets.is_empty() {
-            eprintln!("\n❌ Error: No assets were selected or provided");
-            eprintln!("   Use --assets, --markets-path, or --selection");
-            return Err(anyhow::anyhow!("No assets specified"));
+            println!("\n❌ No assets selected");
+            return Err(anyhow::anyhow!("No assets selected"));
         }
 
         // Show asset information
@@ -424,14 +430,24 @@ impl StreamCommand {
     }
 
     async fn execute_cli(&self, host: &str, data_paths: DataPaths) -> Result<()> {
+        // Show header first in CLI mode too
+        info!("🚀 Starting Polymarket WebSocket Stream");
+        
         // Load assets from various sources
-        let assets = self.get_assets_for_streaming(&data_paths).await?;
+        let assets = match self.get_assets_for_streaming(&data_paths).await {
+            Ok(assets) => assets,
+            Err(e) => {
+                error!("Failed to get assets: {}", e);
+                return Err(e);
+            }
+        };
 
         if assets.is_empty() {
-            return Err(anyhow::anyhow!("At least one asset ID must be provided with --assets, --markets-path, or --selection"));
+            error!("No assets selected");
+            return Err(anyhow::anyhow!("No assets selected"));
         }
 
-        info!("🚀 Starting Polymarket WebSocket stream with {} assets", assets.len());
+        info!("📊 Streaming {} assets", assets.len());
 
         // Configure WebSocket
         let ws_config = WsConfig {
@@ -584,35 +600,85 @@ impl StreamCommand {
                     }
                 }
                 Err(e) => {
-                    warn!("Interactive dataset selector failed: {}", e);
-                    // Fall through to non-interactive options
+                    let error_str = e.to_string();
+                    
+                    // If it's a terminal availability issue, return the detailed error directly
+                    if error_str.contains("Interactive dataset selector requires a terminal environment") {
+                        return Err(e);
+                    }
+                    
+                    // If the dataset selector was cancelled by user, return that specific error
+                    if error_str.contains("Dataset selection cancelled by user") {
+                        return Err(e);
+                    }
+                    
+                    // For other dataset selector errors, return them directly
+                    // Don't fall through to the generic "No assets specified" error
+                    return Err(anyhow::anyhow!("Dataset selector error: {}", e));
                 }
             }
         }
 
-        // 5. Fall back to non-interactive selection list
+        // 5. Fall back to non-interactive selection list (only for non-TUI mode)
         self.show_available_selections_and_exit(data_paths).await
     }
 
-    async fn run_interactive_dataset_selector(&self, _data_paths: &DataPaths) -> Result<Vec<String>> {
-        println!("\n🔍 No assets specified - opening dataset selector...");
+    async fn run_interactive_dataset_selector(&self, data_paths: &DataPaths) -> Result<Vec<String>> {
+        println!("🔍 No assets specified - opening dataset selector...");
         println!("💡 You can also use --assets, --markets-path, or --selection");
         
-        // TODO: Implement proper dataset selector once storage module is fixed
-        // For now, this is a placeholder implementation that shows what would happen
-        println!("📋 Dataset selector would show available datasets here");
-        println!("🚧 Dataset selector temporarily unavailable (storage module needs bincode dependency)");
-        println!("   Please use --assets, --markets-path, or --selection instead");
+        // Use the improved dataset selector v2
+        // Pass the datasets directory path specifically
+        let datasets_path = data_paths.data().join("datasets");
         
-        Err(anyhow::anyhow!("Interactive dataset selector temporarily unavailable - please use --assets, --markets-path, or --selection"))
+        // Ensure the datasets directory exists
+        if !datasets_path.exists() {
+            std::fs::create_dir_all(&datasets_path)?;
+        }
+        
+        // Try to run the dataset selector with better error handling
+        match crate::tui::dataset_selector::DatasetSelector::run(
+            &datasets_path.to_string_lossy()
+        ).await {
+            Ok(result) => {
+                if result.cancelled {
+                    return Err(anyhow::anyhow!("Dataset selection cancelled by user"));
+                }
+                Ok(result.selected_tokens)
+            }
+            Err(e) => {
+                // Check if this is a terminal-related error
+                let error_str = e.to_string();
+                if error_str.contains("TUI not available") || 
+                   error_str.contains("Device not configured") ||
+                   error_str.contains("not a terminal") {
+                    // Provide a more helpful error message for terminal issues
+                    return Err(anyhow::anyhow!(
+                        "Interactive dataset selector requires a terminal environment.\n\
+                        \n\
+                        The TUI interface is not available in this environment.\n\
+                        Please use one of these alternatives:\n\
+                        \n\
+                        1. Run in a proper terminal (not in a pipe/redirect)\n\
+                        2. Specify assets directly: polybot stream --assets TOKEN1,TOKEN2\n\
+                        3. Use a saved selection: polybot stream --selection <name>\n\
+                        4. Load from file: polybot stream --markets-path <file>\n\
+                        \n\
+                        To create selections for later use:\n\
+                        polybot selections create --name <name> --tokens TOKEN1,TOKEN2"
+                    ));
+                }
+                // For other errors, return the original error
+                Err(e)
+            }
+        }
     }
 
     async fn show_available_selections_and_exit(&self, data_paths: &DataPaths) -> Result<Vec<String>> {
-        println!("\n❌ No assets specified and interactive mode not available.");
-        println!("\nYou can provide assets in several ways:");
-        println!("  1. Direct tokens:     --assets TOKEN1,TOKEN2,TOKEN3");
-        println!("  2. Markets file:      --markets-path path/to/markets.json");
-        println!("  3. Saved selection:   --selection my-selection");
+        println!("\nYou must provide assets in one of these ways:");
+        println!("  1. Direct tokens:     polybot stream --assets TOKEN1,TOKEN2,TOKEN3");
+        println!("  2. Markets file:      polybot stream --markets-path path/to/markets.json");
+        println!("  3. Saved selection:   polybot stream --selection <name>");
         
         // Show available selections
         let manager = SelectionManager::new(&data_paths.data());
@@ -620,15 +686,19 @@ impl StreamCommand {
         
         if !selections.is_empty() {
             println!("\nAvailable selections:");
-            for selection in selections {
+            for selection in &selections {
                 println!("  • {}", selection);
             }
-            println!("\nUse: polybot stream --selection <name>");
+            println!("\nExample: polybot stream --selection {}", selections.first().unwrap());
         } else {
-            println!("\nNo saved selections found. Create one with: polybot selections create");
+            println!("\nNo saved selections found.");
+            println!("Create one with: polybot selections create --name my-selection --tokens TOKEN1,TOKEN2");
         }
         
-        Err(anyhow::anyhow!("No assets specified"))
+        println!("\nFor interactive selection (requires terminal):");
+        println!("  Run 'polybot stream' in a proper terminal window");
+        
+        Err(anyhow::anyhow!("No assets specified for streaming"))
     }
 
     fn load_assets_from_selection(&self, selection_name: &str, data_paths: &DataPaths) -> Result<Vec<String>> {

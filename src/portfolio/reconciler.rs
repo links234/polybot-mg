@@ -23,7 +23,7 @@ pub struct PositionReconciler {
 
 impl PositionReconciler {
     /// Create new reconciler
-    pub fn new() -> Self {
+    pub fn _new() -> Self {
         Self {
             positions: HashMap::new(),
             trades: Vec::new(),
@@ -31,7 +31,7 @@ impl PositionReconciler {
     }
 
     /// Reconcile positions from orders
-    pub fn reconcile_from_orders(&mut self, orders: &[PolymarketOrder]) -> Result<Vec<Position>> {
+    pub fn _reconcile_from_orders(&mut self, orders: &[PolymarketOrder]) -> Result<Vec<Position>> {
         info!("Reconciling positions from {} orders", orders.len());
 
         // Group filled orders by token_id
@@ -57,7 +57,7 @@ impl PositionReconciler {
             sorted_orders.sort_by_key(|o| o.created_at);
 
             // Build position from orders
-            let position = self.build_position_from_orders(&token_id, &sorted_orders)?;
+            let position = self._build_position_from_orders(&token_id, &sorted_orders)?;
             
             if position.size > Decimal::ZERO {
                 self.positions.insert(token_id, position);
@@ -73,7 +73,7 @@ impl PositionReconciler {
     }
 
     /// Build position from a series of orders for a token
-    fn build_position_from_orders(&self, token_id: &str, orders: &[&PolymarketOrder]) -> Result<Position> {
+    fn _build_position_from_orders(&self, token_id: &str, orders: &[&PolymarketOrder]) -> Result<Position> {
         let first_order = orders.first()
             .ok_or_else(|| anyhow::anyhow!("No orders provided"))?;
 
@@ -242,7 +242,7 @@ impl PositionReconciler {
     }
 
     /// Calculate portfolio summary statistics
-    pub fn calculate_stats(&self) -> PortfolioStats {
+    pub fn _calculate_stats(&self) -> PortfolioStats {
         let positions: Vec<&Position> = self.positions.values().collect();
         
         let total_positions = positions.len();

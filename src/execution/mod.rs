@@ -16,6 +16,6 @@ pub mod events;
 pub mod strategies;
 pub mod config;
 pub mod orderbook;
-pub mod orders;
+// pub mod orders;
 
 // Note: AssetOrderBook is imported directly from orderbook module where needed

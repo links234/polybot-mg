@@ -50,3 +50,6 @@ target/
 
 # Data
 data/
+
+# Logs
+logs/

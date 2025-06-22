@@ -36,6 +36,10 @@ use commands::install::{InstallArgs, InstallCommand};
 use commands::version::{VersionArgs, VersionCommand};
 use commands::index::{IndexArgs, IndexCommand};
 use commands::worktree::WorktreeArgs;
+use commands::portfolio_status::{PortfolioStatusArgs, portfolio_status};
+use commands::trades::{TradesArgs, trades};
+// use commands::gamma::{GammaArgs, GammaCommand};
+use crate::address_book::AddressCommand;
 
 #[derive(Parser)]
 #[command(name = "polybot")]
@@ -116,6 +120,18 @@ pub enum Commands {
     
     /// Manage git worktrees with data and environment setup
     Worktree(WorktreeArgs),
+    
+    /// Check portfolio service status and cache statistics
+    PortfolioStatus(PortfolioStatusArgs),
+    
+    /// View trade history
+    Trades(TradesArgs),
+    
+    /// Manage address book for multiple Ethereum addresses
+    Address(AddressCommand),
+    
+    // Historical data via Gamma API (positions, activity, portfolios)
+    // Gamma(GammaArgs),
 }
 
 impl Cli {
@@ -156,6 +172,10 @@ impl Cli {
             Commands::Version(args) => VersionCommand::new(args).execute(host, data_paths).await,
             Commands::Index(args) => IndexCommand::new(args).execute(host, data_paths).await,
             Commands::Worktree(args) => commands::worktree::worktree(args, host, data_paths).await,
+            Commands::PortfolioStatus(args) => portfolio_status(args, host, data_paths).await,
+            Commands::Trades(args) => trades(args, host, data_paths).await,
+            Commands::Address(cmd) => cmd.execute(host, data_paths).await,
+            // Commands::Gamma(args) => GammaCommand::new(args).execute(host, data_paths).await,
         }
     }
 } 

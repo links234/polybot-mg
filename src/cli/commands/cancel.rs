@@ -1,7 +1,8 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use clap::Args;
-use tracing::warn;
+use tracing::{info, warn};
 use crate::data_paths::DataPaths;
+use crate::portfolio::command_handlers::enhanced_cancel_command;
 
 #[derive(Args, Clone)]
 pub struct CancelArgs {
@@ -26,11 +27,18 @@ impl CancelCommand {
         // Check confirmation in non-production environments
         if !self.args.yes && std::env::var("RUST_ENV").unwrap_or_default() != "production" {
             warn!("⚠️  Cancellation confirmation required. Use --yes to confirm.");
-            return Ok(());
+            return Err(anyhow!("Cancellation confirmation required"));
         }
         
-        let mut client = crate::auth::get_authenticated_client(host, &data_paths).await?;
-        crate::execution::orders::cancel_order(&mut client, &self.args.order_id).await?;
+        info!("Executing cancel command for order: {}", self.args.order_id);
+        
+        // Use the enhanced cancel command from portfolio system
+        enhanced_cancel_command(
+            &self.args.order_id,
+            host,
+            data_paths,
+        ).await?;
+        
         Ok(())
     }
 } 

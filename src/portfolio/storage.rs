@@ -267,7 +267,7 @@ impl PortfolioStorage {
     }
 
     /// Save current positions
-    pub async fn save_positions(&self, positions: &[Position]) -> Result<()> {
+    pub async fn _save_positions(&self, positions: &[Position]) -> Result<()> {
         self.init_directories().await?;
 
         let filepath = self.account_dir.join("positions").join("current.json");
@@ -305,7 +305,7 @@ impl PortfolioStorage {
     }
 
     /// Save active orders cache
-    pub async fn save_active_orders(&self, orders: &[PolymarketOrder]) -> Result<()> {
+    pub async fn _save_active_orders(&self, orders: &[PolymarketOrder]) -> Result<()> {
         self.init_directories().await?;
 
         let filepath = self.account_dir.join("orders").join("active.json");

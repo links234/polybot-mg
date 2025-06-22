@@ -1,20 +1,51 @@
 //! Portfolio management and position tracking
 //!
-//! This module provides real-time portfolio and position tracking
-//! with WebSocket streaming updates from the user channel.
+//! This module provides comprehensive portfolio management with an actor-based service,
+//! real-time data tracking, API integration, and persistent storage.
 
 pub mod manager;
 pub mod types;
 pub mod orders_api;
 pub mod storage;
 pub mod reconciler;
+pub mod service;
+// pub mod api;
+// pub mod cache;
+pub mod command_handlers;
+pub mod display;
 
-// pub use manager::PortfolioManager;
+// Core types
 pub use types::{
-    Position, PositionSide, PositionStatus, PortfolioStats, ActiveOrder,
-    // _PortfolioEvent,
-    OrderSide, OrderStatus, MarketPositionSummary
+    Position, PositionStatus, PortfolioStats, ActiveOrder,
+    OrderSide, OrderStatus, MarketPositionSummary, TradeExecution,
 };
-pub use storage::{PortfolioStorage, PortfolioSnapshot, AccountBalances};
-pub use reconciler::PositionReconciler;
-// pub use orders_api::{PolymarketOrder, fetch_orders_via_client};
+
+// Storage
+// pub use storage::{PortfolioStorage, PortfolioSnapshot, AccountBalances};
+
+// Service
+pub use service::{
+    PortfolioServiceHandle, PortfolioState,
+    start_portfolio_service,
+};
+
+// API integration
+// pub use api::{PortfolioApiClient, ApiTrade, ApiPosition};
+// pub use orders_api::{PolymarketOrder, BalanceInfo};
+
+// Cache
+// pub use cache::PortfolioCache;
+
+// Command handlers
+pub use command_handlers::{
+    get_portfolio_service_handle,
+};
+
+// Display utilities
+pub use display::{
+    TradesFormatter,
+    DashboardFormatter,
+};
+
+// Other components
+// pub use reconciler::PositionReconciler;

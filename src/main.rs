@@ -8,6 +8,7 @@ mod ethereum_utils;
 mod markets;
 mod cli;
 mod data_paths;
+use data_paths as data;
 mod ws;
 mod services;
 mod pipeline;
@@ -21,6 +22,7 @@ mod tui;
 mod types;
 mod typed_store;
 mod file_store;
+mod address_book;
 
 #[tokio::main]
 async fn main() -> Result<()> {

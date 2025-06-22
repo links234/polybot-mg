@@ -12,13 +12,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. **Strong Typing**: Replace tuples with meaningful structs - no `(Type, Type)` patterns
 3. **Type Safety**: Always prefer strongly typed programming, use enums and structs over primitives
 4. **Rust Only**: This is a Rust-only project - no mixing with other languages
-5. **Documentation**: Always write and update READMEs for each component (every folder should have README.md, referenced in mod.rs if present)
-6. **Documentation Structure**: Follow the established docs/ hierarchy - see Documentation Organization section below
-7. **README Content Policy**: Never add Security, Disclaimer, or similar sections to README.md unless explicitly requested by user
-8. **File Size Limits**: Keep files below 700-1000 lines (1000 in extreme cases, most <700 lines)
-9. **Idiomatic Rust**: Use `impl` methods on `struct`s directly instead of standalone functions
-10. **Comprehensive Logging**: Write good debug, info, warn and error logs (written to file) for debugging reference
-11. **Never Modify Cargo.toml Versions**: Never change version numbers in Cargo.toml unless explicitly requested by user
+5. **NO MOCK DATA**: NEVER use placeholder, mock, or fake data. Always implement with real data from the application state, portfolio manager, streaming services, or other actual data sources. Mock data is strictly forbidden.
+6. **Documentation**: Always write and update READMEs for each component (every folder should have README.md, referenced in mod.rs if present)
+7. **Documentation Structure**: Follow the established docs/ hierarchy - see Documentation Organization section below
+8. **README Content Policy**: Never add Security, Disclaimer, or similar sections to README.md unless explicitly requested by user
+9. **File Size Limits**: Keep files below 700-1000 lines (1000 in extreme cases, most <700 lines)
+10. **Idiomatic Rust**: Use `impl` methods on `struct`s directly instead of standalone functions
+11. **Comprehensive Logging**: Write good debug, info, warn and error logs (written to file) for debugging reference
+12. **Never Modify Cargo.toml Versions**: Never change version numbers in Cargo.toml unless explicitly requested by user
 
 ### Code Quality Standards
 
@@ -58,6 +59,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ❌ Bash scripts → ✅ Cargo commands and CLI tools
 - ❌ Large monolithic files → ✅ Well-organized, focused modules
 - ❌ Modifying Cargo.toml versions → ✅ Leave version management to project maintainer
+- ❌ Mock/placeholder data → ✅ Real data from PortfolioManager, Streamer, TokenActivity, etc.
+- ❌ Hardcoded sample values → ✅ Dynamic data from actual application state
+- ❌ "TODO: implement real data" → ✅ Immediate real data integration
 
 ## Documentation Organization
 
@@ -323,3 +327,12 @@ cargo run -- tui-test
 - **TUI test mode** for interface validation
 - **WebSocket simulation** for offline development
 - **Test file organization** prevents context pollution and improves code retrieval
+- **NO MOCK DATA in tests** - Use actual data structures and realistic test data, not placeholder values
+
+### TUI Development Guidelines
+
+- **Real Data Only**: All TUI pages must use actual data from PortfolioManager, Streamer, TokenActivity, and other app state
+- **Thread-Safe Access**: Use `try_read()` and `try_write()` for non-blocking data access in UI context
+- **Error Handling**: Display meaningful messages when data is unavailable instead of showing mock data
+- **Page Architecture**: Each page implements the Page trait with real render logic using app state
+- **Navigation**: Tab-based navigation with consistent keyboard shortcuts across all pages

@@ -1,5 +1,5 @@
 //! Data source abstractions for the execution engine
-//! 
+//!
 //! Provides unified interfaces for different data sources:
 //! - Real-time WebSocket streams
 //! - Historical replay from files
@@ -9,10 +9,10 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::mpsc;
 // use async_trait::async_trait; // Commented out - not currently used
-use tracing::{info, error};
+use tracing::{error, info};
 
+use super::config::{AssetId, ReplayConfig, WebSocketConfig};
 use super::events::ExecutionEvent;
-use super::config::{AssetId, WebSocketConfig, ReplayConfig};
 use crate::ws::WsClient;
 
 // COMMENTED OUT: These traits are not currently used
@@ -23,19 +23,19 @@ use crate::ws::WsClient;
 pub trait DataSource: Send + Sync {
     /// Start the data source
     async fn start(&mut self) -> Result<(), DataSourceError>;
-    
+
     /// Stop the data source
     async fn stop(&mut self) -> Result<(), DataSourceError>;
-    
+
     /// Get the event stream
     fn event_stream(&self) -> Box<dyn EventStream>;
-    
+
     /// Get source name for logging
     fn name(&self) -> &str;
-    
+
     /// Check if source is currently active
     fn is_active(&self) -> bool;
-    
+
     /// Get source health status
     fn health_status(&self) -> SourceHealth;
 }
@@ -45,10 +45,10 @@ pub trait DataSource: Send + Sync {
 pub trait EventStream: Send + Sync {
     /// Receive the next event
     async fn next_event(&mut self) -> Option<Result<ExecutionEvent, StreamError>>;
-    
+
     /// Check if stream has more events
     fn has_more(&self) -> bool;
-    
+
     /// Get stream statistics
     fn stats(&self) -> StreamStats;
 }
@@ -120,7 +120,7 @@ impl WebSocketDataSource {
             market_url = %config.market_url,
             "Creating WebSocket data source"
         );
-        
+
         Self {
             _config: config,
             _assets: assets,
@@ -140,54 +140,54 @@ impl DataSource for WebSocketDataSource {
         if self.is_running {
             return Err(DataSourceError::AlreadyRunning);
         }
-        
+
         info!("Starting WebSocket data source");
-        
+
         // Create event channel
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
         self.event_tx = Some(event_tx.clone());
-        
+
         // TODO: Initialize WebSocket client and connect
         // This would integrate with the existing WsClient
-        
+
         self.is_running = true;
         self.health = SourceHealth::Healthy;
-        
+
         info!("WebSocket data source started successfully");
         Ok(())
     }
-    
+
     async fn stop(&mut self) -> Result<(), DataSourceError> {
         if !self.is_running {
             return Err(DataSourceError::NotRunning);
         }
-        
+
         info!("Stopping WebSocket data source");
-        
+
         // Close client connection
         if let Some(_client) = self.client.take() {
             // TODO: Implement graceful shutdown
         }
-        
+
         self.is_running = false;
         self.health = SourceHealth::Disconnected;
-        
+
         info!("WebSocket data source stopped");
         Ok(())
     }
-    
+
     fn event_stream(&self) -> Box<dyn EventStream> {
         Box::new(WebSocketEventStream::_new())
     }
-    
+
     fn name(&self) -> &str {
         "WebSocket"
     }
-    
+
     fn is_active(&self) -> bool {
         self.is_running
     }
-    
+
     fn health_status(&self) -> SourceHealth {
         self.health.clone()
     }
@@ -218,11 +218,11 @@ impl EventStream for WebSocketEventStream {
         // TODO: Implement actual event receiving
         None
     }
-    
+
     fn has_more(&self) -> bool {
         true // WebSocket streams are continuous
     }
-    
+
     fn stats(&self) -> StreamStats {
         self.stats.clone()
     }
@@ -249,7 +249,7 @@ impl ReplayDataSource {
             playback_speed = config.playback_speed,
             "Creating replay data source"
         );
-        
+
         Self {
             _config: config,
             _filter_assets: filter_assets,
@@ -260,7 +260,7 @@ impl ReplayDataSource {
             _total_events: 0,
         }
     }
-    
+
     /// Get replay progress (0.0 to 1.0)
     pub fn _progress(&self) -> f64 {
         if self._total_events == 0 {
@@ -279,56 +279,56 @@ impl DataSource for ReplayDataSource {
         if self.is_running {
             return Err(DataSourceError::AlreadyRunning);
         }
-        
+
         info!("Starting replay data source");
-        
+
         // Validate data directory exists
         if !self.config.data_directory.exists() {
             let error_msg = format!("Data directory does not exist: {}", self.config.data_directory.display());
             error!("{}", error_msg);
             return Err(DataSourceError::ConfigurationError(error_msg));
         }
-        
+
         // Create event channel
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
         self.event_tx = Some(event_tx);
-        
+
         // TODO: Scan directory for replay files and count total events
         self.total_events = 0; // Placeholder
-        
+
         self.is_running = true;
         self.health = SourceHealth::Healthy;
-        
+
         info!("Replay data source started successfully");
         Ok(())
     }
-    
+
     async fn stop(&mut self) -> Result<(), DataSourceError> {
         if !self.is_running {
             return Err(DataSourceError::NotRunning);
         }
-        
+
         info!("Stopping replay data source");
-        
+
         self.is_running = false;
         self.health = SourceHealth::Disconnected;
-        
+
         info!("Replay data source stopped");
         Ok(())
     }
-    
+
     fn event_stream(&self) -> Box<dyn EventStream> {
         Box::new(ReplayEventStream::_new(self.config.clone()))
     }
-    
+
     fn name(&self) -> &str {
         "Replay"
     }
-    
+
     fn is_active(&self) -> bool {
         self.is_running
     }
-    
+
     fn health_status(&self) -> SourceHealth {
         self.health.clone()
     }
@@ -361,17 +361,17 @@ impl EventStream for ReplayEventStream {
         if self.finished {
             return None;
         }
-        
+
         // TODO: Implement actual replay event reading from files
         // For now, return None to indicate end of stream
         self.finished = true;
         None
     }
-    
+
     fn has_more(&self) -> bool {
         !self.finished
     }
-    
+
     fn stats(&self) -> StreamStats {
         self.stats.clone()
     }
@@ -396,7 +396,7 @@ impl SimulationDataSource {
             event_frequency = ?event_frequency,
             "Creating simulation data source"
         );
-        
+
         Self {
             _asset_count: asset_count,
             _event_frequency: event_frequency,
@@ -415,48 +415,48 @@ impl DataSource for SimulationDataSource {
         if self.is_running {
             return Err(DataSourceError::AlreadyRunning);
         }
-        
+
         info!("Starting simulation data source");
-        
+
         // Create event channel
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
         self.event_tx = Some(event_tx);
-        
+
         // TODO: Start synthetic event generation
-        
+
         self.is_running = true;
         self.health = SourceHealth::Healthy;
-        
+
         info!("Simulation data source started successfully");
         Ok(())
     }
-    
+
     async fn stop(&mut self) -> Result<(), DataSourceError> {
         if !self.is_running {
             return Err(DataSourceError::NotRunning);
         }
-        
+
         info!("Stopping simulation data source");
-        
+
         self.is_running = false;
         self.health = SourceHealth::Disconnected;
-        
+
         info!("Simulation data source stopped");
         Ok(())
     }
-    
+
     fn event_stream(&self) -> Box<dyn EventStream> {
         Box::new(SimulationEventStream::_new(self.event_frequency))
     }
-    
+
     fn name(&self) -> &str {
         "Simulation"
     }
-    
+
     fn is_active(&self) -> bool {
         self.is_running
     }
-    
+
     fn health_status(&self) -> SourceHealth {
         self.health.clone()
     }
@@ -488,11 +488,11 @@ impl EventStream for SimulationEventStream {
         tokio::time::sleep(self.event_frequency).await;
         None
     }
-    
+
     fn has_more(&self) -> bool {
         true // Simulation can run indefinitely
     }
-    
+
     fn stats(&self) -> StreamStats {
         self.stats.clone()
     }
@@ -512,25 +512,25 @@ mod tests {
         let config = WebSocketConfig::default();
         let assets = vec![AssetId::from("test_asset")];
         let mut source = WebSocketDataSource::_new(config, assets);
-        
+
         assert!(!source.is_active());
         assert_eq!(source.health_status(), SourceHealth::Disconnected);
-        
+
         // Start should succeed
         let result = source.start().await;
         assert!(result.is_ok());
         assert!(source.is_active());
-        
+
         // Starting again should fail
         let result = source.start().await;
         assert!(matches!(result, Err(DataSourceError::AlreadyRunning)));
-        
+
         // Stop should succeed
         let result = source.stop().await;
         assert!(result.is_ok());
         assert!(!source.is_active());
     }
-    
+
     #[tokio::test]
     async fn test_replay_source_validation() {
         let config = ReplayConfig {
@@ -538,7 +538,7 @@ mod tests {
             ..Default::default()
         };
         let mut source = ReplayDataSource::_new(config, None);
-        
+
         // Should fail due to nonexistent directory
         let result = source.start().await;
         assert!(matches!(result, Err(DataSourceError::ConfigurationError(_))));

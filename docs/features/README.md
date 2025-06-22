@@ -11,6 +11,13 @@ Comprehensive documentation of WebSocket streaming enhancements, including:
 - Connection stability improvements
 - Performance metrics and monitoring
 
+### [WebSocket Portfolio Migration](./websocket-portfolio-migration.md)
+Migration from HTTP-based portfolio service to WebSocket-only streaming:
+- Real-time portfolio updates via WebSocket events
+- Elimination of HTTP request overhead
+- Consistent with ratatui implementation
+- Event-driven architecture benefits
+
 ## 🖥️ User Interface
 
 ### [TUI Implementation](./tui-implementation.md)
@@ -19,6 +26,13 @@ Terminal User Interface features and design:
 - Real-time data visualization
 - Keyboard navigation and controls
 - UI responsiveness optimizations
+
+### [GUI Fixes Summary](./gui-fixes-summary.md)
+Recent GUI improvements and fixes:
+- Border rendering aesthetics
+- Focus existing windows behavior
+- Smart auto-arrange with clustering
+- Layout management enhancements
 
 ### [Dataset Selector](./dataset-selector.md)
 Unified interface for data source selection:

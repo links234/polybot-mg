@@ -1,0 +1,42 @@
+namespace polybot.flatbuffers;
+
+// Trade event from WebSocket
+table Trade {
+  token_id: string (required);
+  price: string (required);      // Using string for Decimal precision
+  size: string;                  // Optional size for regular trades
+  timestamp_utc: uint64;         // Unix timestamp in milliseconds
+  trade_id: string;              // Optional trade ID if available
+  side: byte;                    // 0 = Unknown, 1 = Buy, 2 = Sell
+}
+
+// Last trade price event
+table LastTradePrice {
+  token_id: string (required);
+  price: string (required);      // Using string for Decimal precision  
+  timestamp_utc: uint64;         // Unix timestamp in milliseconds
+  sequence_number: uint64;       // For ordering events
+}
+
+// Session metadata for trades file
+table TradesSessionMetadata {
+  session_id: string (required);
+  token_id: string (required);
+  start_timestamp: uint64;       // Start time in UTC (Unix timestamp in milliseconds)
+  end_timestamp: uint64;         // End time in UTC (Unix timestamp in milliseconds)
+  trade_count: uint64;           // Total number of trades
+  last_trade_count: uint64;      // Number of last_trade_price events
+  min_price: string;             // Minimum price seen
+  max_price: string;             // Maximum price seen
+  file_version: uint32;          // For schema versioning
+}
+
+// Container for a batch of trades/last trade prices
+table TradesBatch {
+  trades: [Trade];
+  last_trade_prices: [LastTradePrice];
+  timestamp_utc: uint64;         // Batch timestamp
+}
+
+// Root type for trades files
+root_type TradesBatch;

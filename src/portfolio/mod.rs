@@ -4,17 +4,23 @@
 //! with WebSocket streaming updates from the user channel.
 
 pub mod manager;
-pub mod types;
 pub mod orders_api;
-pub mod storage;
 pub mod reconciler;
+pub mod storage;
+pub mod types;
 
 // pub use manager::PortfolioManager;
-pub use types::{
-    Position, PositionSide, PositionStatus, PortfolioStats, ActiveOrder,
-    // _PortfolioEvent,
-    OrderSide, OrderStatus, MarketPositionSummary
-};
-pub use storage::{PortfolioStorage, PortfolioSnapshot, AccountBalances};
 pub use reconciler::PositionReconciler;
+pub use storage::{AccountBalances, PortfolioSnapshot, PortfolioStorage};
+pub use types::{
+    ActiveOrder,
+    MarketPositionSummary,
+    // _PortfolioEvent,
+    OrderSide,
+    OrderStatus,
+    PortfolioStats,
+    Position,
+    PositionSide,
+    PositionStatus,
+};
 // pub use orders_api::{PolymarketOrder, fetch_orders_via_client};

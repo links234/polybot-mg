@@ -16,5 +16,5 @@
 pub mod order_book;
 pub mod portfolio;
 
-pub use order_book::draw_order_book;
+// pub use order_book::draw_order_book;
 // pub use portfolio::{PortfolioWidget, PortfolioTab};

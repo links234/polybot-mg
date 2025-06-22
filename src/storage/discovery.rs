@@ -1,12 +1,15 @@
 //! Dataset discovery using the existing dataset manager
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
-use crate::datasets::{DatasetInfo, DatasetType, FileInfo, FileType, DatasetCommandInfo, JsonSubtype, YamlPurpose, TextFormat, BinaryFormat, CommandInfo, DetectedCommand, ExecutionContext};
+use crate::datasets::{
+    BinaryFormat, CommandInfo, DatasetCommandInfo, DatasetInfo, DatasetType, DetectedCommand,
+    ExecutionContext, FileInfo, FileType, JsonSubtype, TextFormat, YamlPurpose,
+};
 
 #[derive(Debug, Clone)]
 pub struct DiscoveredDataset {
@@ -35,7 +38,7 @@ impl DatasetDiscovery {
             base_path: base_path.as_ref().to_path_buf(),
         }
     }
-    
+
     pub fn _base_path(&self) -> &Path {
         &self.base_path
     }
@@ -43,25 +46,29 @@ impl DatasetDiscovery {
     /// Discover all available datasets using a unified approach
     pub async fn discover_datasets(&self) -> Result<Vec<DiscoveredDataset>> {
         info!("Looking for datasets in: {:?}", self.base_path);
-        
+
         let mut discovered_datasets = Vec::new();
-        
+
         // Scan the datasets directory directly for better organization
         let datasets_dir = self.base_path.clone();
         if datasets_dir.exists() {
             self.scan_datasets_directory(&datasets_dir, &mut discovered_datasets)?;
         }
-        
+
         // Remove duplicates based on token_id and path
         discovered_datasets.sort_by(|a, b| a.token_id.cmp(&b.token_id));
         discovered_datasets.dedup_by(|a, b| a.token_id == b.token_id && a.path == b.path);
-        
+
         info!("Found {} unique datasets", discovered_datasets.len());
         Ok(discovered_datasets)
     }
 
     /// Scan the datasets directory for organized dataset discovery
-    fn scan_datasets_directory(&self, dir: &Path, datasets: &mut Vec<DiscoveredDataset>) -> Result<()> {
+    fn scan_datasets_directory(
+        &self,
+        dir: &Path,
+        datasets: &mut Vec<DiscoveredDataset>,
+    ) -> Result<()> {
         if !dir.is_dir() {
             return Ok(());
         }
@@ -72,17 +79,18 @@ impl DatasetDiscovery {
         for entry in entries {
             let entry = entry?;
             let path = entry.path();
-            
+
             if path.is_dir() {
-                let dir_name = path.file_name()
+                let dir_name = path
+                    .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("unknown");
-                
+
                 // Skip certain directories
                 if dir_name == "selection" || dir_name.starts_with('.') {
                     continue;
                 }
-                
+
                 // Check if this is a top-level dataset category (like bitcoin_price_bets)
                 if self.is_dataset_category(&path) {
                     self.process_dataset_category(&path, dir_name, datasets)?;
@@ -92,7 +100,7 @@ impl DatasetDiscovery {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -104,7 +112,10 @@ impl DatasetDiscovery {
                 if path.is_dir() {
                     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
                     // Check if it looks like a date directory (YYYY-MM-DD format)
-                    if name.len() == 10 && name.chars().nth(4) == Some('-') && name.chars().nth(7) == Some('-') {
+                    if name.len() == 10
+                        && name.chars().nth(4) == Some('-')
+                        && name.chars().nth(7) == Some('-')
+                    {
                         return true;
                     }
                 }
@@ -114,10 +125,15 @@ impl DatasetDiscovery {
     }
 
     /// Process a dataset category (like bitcoin_price_bets) and find the latest version
-    fn process_dataset_category(&self, category_path: &Path, category_name: &str, datasets: &mut Vec<DiscoveredDataset>) -> Result<()> {
+    fn process_dataset_category(
+        &self,
+        category_path: &Path,
+        category_name: &str,
+        datasets: &mut Vec<DiscoveredDataset>,
+    ) -> Result<()> {
         let mut latest_dataset_path: Option<PathBuf> = None;
         let mut latest_date = String::new();
-        
+
         // Find the latest date directory
         if let Ok(entries) = std::fs::read_dir(category_path) {
             for entry in entries.flatten() {
@@ -126,7 +142,7 @@ impl DatasetDiscovery {
                     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
                     if name > latest_date.as_str() {
                         latest_date = name.to_string();
-                        
+
                         // Look for the actual dataset directory within the date directory
                         if let Ok(date_entries) = std::fs::read_dir(&path) {
                             for date_entry in date_entries.flatten() {
@@ -137,7 +153,7 @@ impl DatasetDiscovery {
                                 }
                             }
                         }
-                        
+
                         // If no subdirectory with dataset files, check the date directory itself
                         if latest_dataset_path.is_none() && self.has_dataset_files(&path) {
                             latest_dataset_path = Some(path);
@@ -146,15 +162,17 @@ impl DatasetDiscovery {
                 }
             }
         }
-        
+
         // Create a dataset entry for the latest version
         if let Some(dataset_path) = latest_dataset_path {
-            if let Ok(dataset_info) = self.create_dataset_info_from_path(&dataset_path, category_name) {
+            if let Ok(dataset_info) =
+                self.create_dataset_info_from_path(&dataset_path, category_name)
+            {
                 let discovered = self.convert_dataset_info(dataset_info);
                 datasets.push(discovered);
             }
         }
-        
+
         Ok(())
     }
 
@@ -173,10 +191,14 @@ impl DatasetDiscovery {
     }
 
     /// Create DatasetInfo from a path and category name
-    fn create_dataset_info_from_path(&self, path: &Path, category_name: &str) -> Result<DatasetInfo> {
+    fn create_dataset_info_from_path(
+        &self,
+        path: &Path,
+        category_name: &str,
+    ) -> Result<DatasetInfo> {
         let mut files = Vec::new();
         let mut total_size = 0u64;
-        
+
         // Scan files in the directory
         if let Ok(entries) = std::fs::read_dir(path) {
             for entry in entries.flatten() {
@@ -185,12 +207,13 @@ impl DatasetDiscovery {
                     let metadata = std::fs::metadata(&file_path)?;
                     let size = metadata.len();
                     total_size += size;
-                    
-                    let file_name = file_path.file_name()
+
+                    let file_name = file_path
+                        .file_name()
                         .and_then(|n| n.to_str())
                         .unwrap_or("unknown")
                         .to_string();
-                    
+
                     files.push(FileInfo {
                         name: file_name,
                         relative_path: PathBuf::from(file_path.file_name().unwrap_or_default()),
@@ -203,7 +226,7 @@ impl DatasetDiscovery {
                 }
             }
         }
-        
+
         // Try to load dataset.yaml for metadata
         let dataset_yaml_path = path.join("dataset.yaml");
         let (dataset_type, command_info) = if dataset_yaml_path.exists() {
@@ -212,26 +235,32 @@ impl DatasetDiscovery {
                 let dataset_command_info = self.convert_command_info(&metadata.command_info);
                 (dataset_type, dataset_command_info)
             } else {
-                (self.infer_dataset_type_from_name(category_name), DatasetCommandInfo {
+                (
+                    self.infer_dataset_type_from_name(category_name),
+                    DatasetCommandInfo {
+                        primary_command: None,
+                        detected_commands: Vec::new(),
+                        evidence: HashMap::new(),
+                        confidence: 0.0,
+                        execution_context: None,
+                    },
+                )
+            }
+        } else {
+            (
+                self.infer_dataset_type_from_name(category_name),
+                DatasetCommandInfo {
                     primary_command: None,
                     detected_commands: Vec::new(),
                     evidence: HashMap::new(),
                     confidence: 0.0,
                     execution_context: None,
-                })
-            }
-        } else {
-            (self.infer_dataset_type_from_name(category_name), DatasetCommandInfo {
-                primary_command: None,
-                detected_commands: Vec::new(),
-                evidence: HashMap::new(),
-                confidence: 0.0,
-                execution_context: None,
-            })
+                },
+            )
         };
-        
+
         let metadata = std::fs::metadata(path)?;
-        
+
         Ok(DatasetInfo {
             name: category_name.to_string(),
             path: path.to_path_buf(),
@@ -251,18 +280,31 @@ impl DatasetDiscovery {
     /// Infer file type from path
     fn infer_file_type(&self, path: &Path) -> FileType {
         match path.extension().and_then(|e| e.to_str()).unwrap_or("") {
-            "json" => FileType::Json { subtype: JsonSubtype::Data },
-            "yaml" | "yml" => FileType::Yaml { purpose: YamlPurpose::Configuration },
-            "txt" | "log" => FileType::Text { format: TextFormat::Plain },
-            _ => FileType::Binary { format: BinaryFormat::Unknown },
+            "json" => FileType::Json {
+                subtype: JsonSubtype::Data,
+            },
+            "yaml" | "yml" => FileType::Yaml {
+                purpose: YamlPurpose::Configuration,
+            },
+            "txt" | "log" => FileType::Text {
+                format: TextFormat::Plain,
+            },
+            _ => FileType::Binary {
+                format: BinaryFormat::Unknown,
+            },
         }
     }
 
     /// Parse dataset type from metadata
-    fn parse_dataset_type(&self, metadata: &crate::datasets::DatasetMetadata, category_name: &str) -> DatasetType {
+    fn parse_dataset_type(
+        &self,
+        metadata: &crate::datasets::DatasetMetadata,
+        category_name: &str,
+    ) -> DatasetType {
         match metadata.dataset_type.as_str() {
             "Pipeline" => {
-                let pipeline_name = metadata.additional_info
+                let pipeline_name = metadata
+                    .additional_info
                     .get("pipeline_name")
                     .and_then(|v| v.as_str())
                     .unwrap_or(category_name);
@@ -275,7 +317,8 @@ impl DatasetDiscovery {
                 source: crate::datasets::DataSource::ClobApi,
             },
             "AnalyzedMarkets" => {
-                let source_dataset = metadata.additional_info
+                let source_dataset = metadata
+                    .additional_info
                     .get("source_dataset")
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown")
@@ -340,10 +383,12 @@ impl DatasetDiscovery {
     fn convert_dataset_info(&self, dataset: DatasetInfo) -> DiscoveredDataset {
         // Use the dataset name directly as the token_id for better identification
         let token_id = dataset.name.clone();
-        
+
         DiscoveredDataset {
             token_id,
-            _session_id: dataset.path.file_name()
+            _session_id: dataset
+                .path
+                .file_name()
                 .and_then(|name| name.to_str())
                 .unwrap_or(&dataset.name)
                 .to_string(),
@@ -363,7 +408,7 @@ impl DatasetDiscovery {
     /// Extract token IDs from dataset files
     fn _extract_token_ids(&self, dataset: &DatasetInfo) -> Vec<String> {
         let mut token_ids = Vec::new();
-        
+
         // Look for market files that might contain token information
         for file in &dataset.files {
             if file.name.contains("markets") && file.name.ends_with(".json") {
@@ -371,12 +416,14 @@ impl DatasetDiscovery {
                 if let Ok(content) = std::fs::read_to_string(&dataset.path.join(&file.name)) {
                     if let Ok(markets) = serde_json::from_str::<serde_json::Value>(&content) {
                         if let Some(array) = markets.as_array() {
-                            for market in array.iter().take(5) { // Limit to first 5 for performance
+                            for market in array.iter().take(5) {
+                                // Limit to first 5 for performance
                                 if let Some(tokens) = market.get("tokens") {
                                     if let Some(tokens_array) = tokens.as_array() {
                                         for token in tokens_array {
-                                            if let Some(token_id) = token.get("token_id")
-                                                .and_then(|t| t.as_str()) {
+                                            if let Some(token_id) =
+                                                token.get("token_id").and_then(|t| t.as_str())
+                                            {
                                                 token_ids.push(token_id.to_string());
                                             }
                                         }
@@ -389,49 +436,66 @@ impl DatasetDiscovery {
                 break; // Only check the first markets file
             }
         }
-        
+
         // If no tokens found, use the dataset name
         if token_ids.is_empty() {
             token_ids.push(dataset.name.clone());
         }
-        
+
         token_ids
     }
 
     /// Extract market information from dataset
     fn extract_market_info(&self, dataset: &DatasetInfo) -> String {
         // For pipeline runs, extract info from dataset.yaml metadata
-        if matches!(dataset.dataset_type, crate::datasets::DatasetType::Pipeline { .. }) {
+        if matches!(
+            dataset.dataset_type,
+            crate::datasets::DatasetType::Pipeline { .. }
+        ) {
             // Try to extract pipeline name and info from additional_info
             if let Ok(metadata) = crate::datasets::load_dataset_metadata(&dataset.path) {
-                if let Some(pipeline_name) = metadata.additional_info.get("pipeline_name")
-                    .and_then(|v| v.as_str()) {
-                    
+                if let Some(pipeline_name) = metadata
+                    .additional_info
+                    .get("pipeline_name")
+                    .and_then(|v| v.as_str())
+                {
                     let mut info = format!("Pipeline: {}", pipeline_name);
-                    
+
                     // Add step information if available
-                    if let Some(successful_steps) = metadata.additional_info.get("successful_steps")
-                        .and_then(|v| v.as_u64()) {
-                        if let Some(total_steps) = metadata.additional_info.get("total_steps")
-                            .and_then(|v| v.as_u64()) {
-                            info.push_str(&format!(" ({}/{} steps)", successful_steps, total_steps));
+                    if let Some(successful_steps) = metadata
+                        .additional_info
+                        .get("successful_steps")
+                        .and_then(|v| v.as_u64())
+                    {
+                        if let Some(total_steps) = metadata
+                            .additional_info
+                            .get("total_steps")
+                            .and_then(|v| v.as_u64())
+                        {
+                            info.push_str(&format!(
+                                " ({}/{} steps)",
+                                successful_steps, total_steps
+                            ));
                         }
                     }
-                    
+
                     // Add duration if available
-                    if let Some(duration) = metadata.additional_info.get("total_duration_secs")
-                        .and_then(|v| v.as_u64()) {
+                    if let Some(duration) = metadata
+                        .additional_info
+                        .get("total_duration_secs")
+                        .and_then(|v| v.as_u64())
+                    {
                         info.push_str(&format!(" - {}s", duration));
                     }
-                    
+
                     return info;
                 }
             }
-            
+
             // Fallback for pipeline runs
             return format!("Pipeline Run: {}", dataset.name);
         }
-        
+
         // Try to get market description from the first market file
         for file in &dataset.files {
             if file.name.contains("markets") && file.name.ends_with(".json") {
@@ -439,12 +503,14 @@ impl DatasetDiscovery {
                     if let Ok(markets) = serde_json::from_str::<serde_json::Value>(&content) {
                         if let Some(array) = markets.as_array() {
                             if let Some(first_market) = array.first() {
-                                if let Some(question) = first_market.get("question")
-                                    .and_then(|q| q.as_str()) {
+                                if let Some(question) =
+                                    first_market.get("question").and_then(|q| q.as_str())
+                                {
                                     return question.to_string();
                                 }
-                                if let Some(description) = first_market.get("description")
-                                    .and_then(|d| d.as_str()) {
+                                if let Some(description) =
+                                    first_market.get("description").and_then(|d| d.as_str())
+                                {
                                     // Return first 100 chars of description
                                     let desc = description.chars().take(100).collect::<String>();
                                     return if description.len() > 100 {
@@ -460,15 +526,17 @@ impl DatasetDiscovery {
                 break;
             }
         }
-        
+
         format!("Dataset: {}", dataset.name)
     }
 
-
     /// Group datasets by token for display
-    pub fn _group_by_token<'a>(&self, datasets: &'a [DiscoveredDataset]) -> HashMap<String, Vec<&'a DiscoveredDataset>> {
+    pub fn _group_by_token<'a>(
+        &self,
+        datasets: &'a [DiscoveredDataset],
+    ) -> HashMap<String, Vec<&'a DiscoveredDataset>> {
         let mut grouped = HashMap::new();
-        
+
         for dataset in datasets {
             grouped
                 .entry(dataset.token_id.clone())
@@ -487,7 +555,7 @@ impl DatasetDiscovery {
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
-        
+
         token_ids.sort();
         token_ids
     }

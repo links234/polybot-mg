@@ -1,13 +1,13 @@
+use crate::data_paths::DataPaths;
 use anyhow::Result;
 use clap::Args;
 use tracing::warn;
-use crate::data_paths::DataPaths;
 
 #[derive(Args, Clone)]
 pub struct CancelArgs {
     /// Order ID
     pub order_id: String,
-    
+
     /// Confirm cancellation (required unless RUST_ENV=production)
     #[arg(long)]
     pub yes: bool,
@@ -28,9 +28,9 @@ impl CancelCommand {
             warn!("⚠️  Cancellation confirmation required. Use --yes to confirm.");
             return Ok(());
         }
-        
+
         let mut client = crate::auth::get_authenticated_client(host, &data_paths).await?;
         crate::execution::orders::cancel_order(&mut client, &self.args.order_id).await?;
         Ok(())
     }
-} 
+}

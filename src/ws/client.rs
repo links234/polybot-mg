@@ -1,7 +1,7 @@
 //! WebSocket client for Polymarket streaming with auto-reconnection
 
-use crate::ws::events::{WsMessage, MarketSubscription, UserSubscription};
-use backoff::{ExponentialBackoff, backoff::Backoff};
+use crate::ws::events::{MarketSubscription, UserSubscription, WsMessage};
+use backoff::{backoff::Backoff, ExponentialBackoff};
 use futures::{SinkExt, StreamExt};
 use serde_json;
 use std::time::Duration;
@@ -49,6 +49,8 @@ pub struct WsConfig {
     pub initial_reconnection_delay: u64,
     /// Maximum reconnection delay in milliseconds
     pub max_reconnection_delay: u64,
+    /// Skip hash verification for orderbook updates
+    pub skip_hash_verification: bool,
 }
 
 impl Default for WsConfig {
@@ -60,6 +62,7 @@ impl Default for WsConfig {
             max_reconnection_attempts: 0, // Infinite retries
             initial_reconnection_delay: 1000,
             max_reconnection_delay: 30000,
+            skip_hash_verification: true, // Skip hash verification by default for now
         }
     }
 }
@@ -132,8 +135,6 @@ impl WsClient {
         self.message_rx.resubscribe()
     }
 
-
-
     /// Disconnect
     pub fn disconnect(&self) -> Result<(), WsError> {
         self.command_tx
@@ -149,7 +150,7 @@ impl WsClient {
         message_tx: broadcast::Sender<WsMessage>,
     ) {
         let mut reconnection_attempts = 0;
-        
+
         loop {
             match Self::connect_and_run(&url, &config, &mut command_rx, &message_tx).await {
                 Ok(()) => {
@@ -158,16 +159,17 @@ impl WsClient {
                 }
                 Err(e) => {
                     error!("WebSocket connection error: {}", e);
-                    
+
                     // Check if we should attempt reconnection
-                    if config.max_reconnection_attempts > 0 
-                        && reconnection_attempts >= config.max_reconnection_attempts {
+                    if config.max_reconnection_attempts > 0
+                        && reconnection_attempts >= config.max_reconnection_attempts
+                    {
                         error!("Maximum reconnection attempts reached");
                         break;
                     }
-                    
+
                     reconnection_attempts += 1;
-                    
+
                     // Calculate backoff delay
                     let mut backoff = ExponentialBackoff {
                         initial_interval: Duration::from_millis(config.initial_reconnection_delay),
@@ -175,9 +177,12 @@ impl WsClient {
                         max_elapsed_time: None,
                         ..Default::default()
                     };
-                    
+
                     if let Some(delay) = backoff.next_backoff() {
-                        warn!("Reconnecting in {:?} (attempt {})", delay, reconnection_attempts);
+                        warn!(
+                            "Reconnecting in {:?} (attempt {})",
+                            delay, reconnection_attempts
+                        );
                         tokio::time::sleep(delay).await;
                     }
                 }
@@ -193,20 +198,23 @@ impl WsClient {
         message_tx: &broadcast::Sender<WsMessage>,
     ) -> Result<(), WsError> {
         info!("Connecting to WebSocket: {}", url);
-        
+
         let (ws_stream, _response) = connect_async(url).await?;
         let (mut write, mut read) = ws_stream.split();
-        
-        info!("WebSocket connected successfully. Status: {:?}", _response.status());
+
+        info!(
+            "WebSocket connected successfully. Status: {:?}",
+            _response.status()
+        );
         debug!("Response headers: {:?}", _response.headers());
-        
+
         // Set up heartbeat timer
         let mut heartbeat = interval(Duration::from_secs(config.heartbeat_interval));
         heartbeat.set_missed_tick_behavior(MissedTickBehavior::Skip);
-        
+
         let mut last_pong = Instant::now();
         let pong_timeout = Duration::from_secs(config.heartbeat_interval * 2);
-        
+
         loop {
             tokio::select! {
                 // Handle incoming messages
@@ -214,31 +222,31 @@ impl WsClient {
                     match msg {
                         Some(Ok(Message::Text(text))) => {
                             debug!("Raw WebSocket message received: {}", text);
-                            
+
                             // Try to parse as different formats to understand the structure
                             if text.trim() == "[]" {
                                 debug!("Received empty array - likely subscription confirmation or no data");
                                 continue;
                             }
-                            
+
                             // Try to parse as array of events (Polymarket format)
                             match serde_json::from_str::<Vec<serde_json::Value>>(&text) {
                                 Ok(events) => {
                                     debug!("Parsed {} events from websocket", events.len());
-                                    
+
                                     // Send each event individually
                                     for event in events {
                                         // Polymarket uses either "type" or "event_type" field
                                         let event_type = event.get("type")
                                             .or_else(|| event.get("event_type"))
                                             .and_then(|v| v.as_str());
-                                            
+
                                         if let Some(event_type) = event_type {
                                             let ws_msg = WsMessage {
                                                 event_type: event_type.to_string(),
                                                 data: event,
                                             };
-                                            
+
                                             if let Err(e) = message_tx.send(ws_msg) {
                                                 warn!("Failed to send event to channel: {}", e);
                                             }
@@ -286,7 +294,7 @@ impl WsClient {
                         }
                     }
                 }
-                
+
                 // Handle commands
                 cmd = command_rx.recv() => {
                     match cmd {
@@ -316,7 +324,7 @@ impl WsClient {
                         }
                     }
                 }
-                
+
                 // Heartbeat
                 _ = heartbeat.tick() => {
                     // Check if we received a recent pong
@@ -326,7 +334,7 @@ impl WsClient {
                             tokio_tungstenite::tungstenite::Error::ConnectionClosed
                         ));
                     }
-                    
+
                     debug!("Sending heartbeat ping");
                     if let Err(e) = write.send(Message::Ping(vec![].into())).await {
                         error!("Failed to send heartbeat: {}", e);
@@ -335,7 +343,7 @@ impl WsClient {
                 }
             }
         }
-        
+
         Ok(())
     }
 }
@@ -349,7 +357,9 @@ mod tests {
         let config = WsConfig::default();
         assert_eq!(config.heartbeat_interval, 10);
         assert_eq!(config.max_reconnection_attempts, 0);
-        assert!(config.market_url.contains("ws-subscriptions-clob.polymarket.com"));
+        assert!(config
+            .market_url
+            .contains("ws-subscriptions-clob.polymarket.com"));
     }
 
     #[tokio::test]
@@ -358,4 +368,4 @@ mod tests {
         let client = WsClient::new_market(config).await;
         assert!(client.is_ok());
     }
-} 
+}

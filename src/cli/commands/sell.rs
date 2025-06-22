@@ -1,22 +1,22 @@
+use crate::data_paths::DataPaths;
 use anyhow::Result;
 use clap::Args;
 use rust_decimal::Decimal;
 use tracing::warn;
-use crate::data_paths::DataPaths;
 
 #[derive(Args, Clone)]
 pub struct SellArgs {
     /// Token ID
     pub token_id: String,
-    
+
     /// Price in USDC (e.g., 0.52)
     #[arg(long)]
     pub price: Decimal,
-    
+
     /// Size in USDC
     #[arg(long)]
     pub size: Decimal,
-    
+
     /// Confirm order placement (required unless RUST_ENV=production)
     #[arg(long)]
     pub yes: bool,
@@ -37,9 +37,15 @@ impl SellCommand {
             warn!("⚠️  Order confirmation required. Use --yes to confirm.");
             return Ok(());
         }
-        
+
         let mut client = crate::auth::get_authenticated_client(host, &data_paths).await?;
-        crate::execution::orders::place_sell_order(&mut client, &self.args.token_id, self.args.price, self.args.size).await?;
+        crate::execution::orders::place_sell_order(
+            &mut client,
+            &self.args.token_id,
+            self.args.price,
+            self.args.size,
+        )
+        .await?;
         Ok(())
     }
 }

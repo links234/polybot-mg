@@ -7,10 +7,10 @@ pub trait TypedCf {
     type Value: Clone + std::fmt::Debug;
     type KeyCodec: DbCodec<Self::Key>;
     type ValueCodec: DbCodec<Self::Value>;
-    
+
     /// Column family name - must be unique across the database
     const NAME: &'static str;
-    
+
     /// Single byte prefix for backward compatibility (0x00‑0xFF)
     const PREFIX: u8;
 }
@@ -30,7 +30,7 @@ pub trait Table {
 macro_rules! define_typed_cf {
     ($name:ident, $key:ty, $value:ty, $cf_name:literal, $prefix:expr) => {
         pub struct $name;
-        
+
         impl $crate::typed_store::table::TypedCf for $name {
             type Key = $key;
             type Value = $value;
@@ -47,7 +47,7 @@ macro_rules! define_typed_cf {
 macro_rules! define_typed_cf_with_codecs {
     ($name:ident, $key:ty, $value:ty, $key_codec:ty, $value_codec:ty, $cf_name:literal, $prefix:expr) => {
         pub struct $name;
-        
+
         impl $crate::typed_store::table::TypedCf for $name {
             type Key = $key;
             type Value = $value;
@@ -64,7 +64,7 @@ macro_rules! define_typed_cf_with_codecs {
 macro_rules! define_table {
     ($name:ident, $key:ty, $value:ty, $prefix:expr) => {
         pub struct $name;
-        
+
         impl $crate::typed_store::table::Table for $name {
             type Key = $key;
             type Value = $value;

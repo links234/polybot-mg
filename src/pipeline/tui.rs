@@ -11,9 +11,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{
-        Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap,
-    },
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::io;
@@ -61,7 +59,7 @@ impl PipelineTui {
         };
 
         app.load_pipelines()?;
-        
+
         // Select first pipeline if available
         if !app.pipelines.is_empty() {
             app.list_state.select(Some(0));
@@ -73,12 +71,12 @@ impl PipelineTui {
     /// Load available pipelines
     fn load_pipelines(&mut self) -> Result<()> {
         let pipeline_names = PipelineRunner::list_pipelines(&self.config.pipelines_dir)?;
-        
+
         self.pipelines = pipeline_names
             .into_iter()
             .map(|name| {
                 let path = self.config.pipeline_path(&name);
-                
+
                 match Pipeline::from_file(&path) {
                     Ok(pipeline) => PipelineInfo {
                         name: name.clone(),
@@ -200,7 +198,10 @@ impl PipelineTui {
     }
 
     /// Main application loop
-    async fn run_app(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
+    async fn run_app(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    ) -> Result<()> {
         loop {
             terminal.draw(|f| self.ui(f))?;
 
@@ -291,7 +292,10 @@ impl PipelineTui {
 
                 let content = vec![
                     Line::from(vec![
-                        Span::styled(format!("{} {}", icon, pipeline.display_name), style.add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            format!("{} {}", icon, pipeline.display_name),
+                            style.add_modifier(Modifier::BOLD),
+                        ),
                         Span::styled(steps_text, Style::default().fg(Color::Yellow)),
                     ]),
                     Line::from(Span::styled(
@@ -327,9 +331,10 @@ impl PipelineTui {
                         Span::from(pipeline.display_name.clone()),
                     ]),
                     Line::from(""),
-                    Line::from(vec![
-                        Span::styled("Description: ", Style::default().add_modifier(Modifier::BOLD)),
-                    ]),
+                    Line::from(vec![Span::styled(
+                        "Description: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    )]),
                     Line::from(pipeline.description.clone()),
                     Line::from(""),
                     Line::from(vec![
@@ -344,9 +349,10 @@ impl PipelineTui {
                 ]
             } else {
                 vec![
-                    Line::from(vec![
-                        Span::styled("❌ Invalid Pipeline", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-                    ]),
+                    Line::from(vec![Span::styled(
+                        "❌ Invalid Pipeline",
+                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    )]),
                     Line::from(""),
                     Line::from(vec![
                         Span::styled("Error: ", Style::default().add_modifier(Modifier::BOLD)),
@@ -406,4 +412,4 @@ impl PipelineTui {
         f.render_widget(Clear, help_area);
         f.render_widget(help, help_area);
     }
-} 
+}

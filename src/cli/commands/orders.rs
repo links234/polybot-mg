@@ -1,6 +1,6 @@
+use crate::data_paths::DataPaths;
 use anyhow::Result;
 use clap::Args;
-use crate::data_paths::DataPaths;
 
 #[derive(Args, Clone)]
 pub struct OrdersArgs {
@@ -23,4 +23,4 @@ impl OrdersCommand {
         crate::execution::orders::list_orders(client, self.args.token_id.clone()).await?;
         Ok(())
     }
-} 
+}

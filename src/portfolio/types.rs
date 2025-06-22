@@ -44,12 +44,12 @@ impl Position {
     pub fn _current_value(&self) -> Option<Decimal> {
         self.current_price.map(|price| self.size * price)
     }
-    
+
     /// Calculate total P&L (realized + unrealized)
     pub fn total_pnl(&self) -> Decimal {
         self.realized_pnl + self.unrealized_pnl.unwrap_or(Decimal::ZERO)
     }
-    
+
     /// Calculate P&L percentage
     pub fn pnl_percentage(&self) -> Option<Decimal> {
         let cost_basis = self.size * self.average_price;
@@ -59,7 +59,7 @@ impl Position {
             Some((self.total_pnl() / cost_basis) * Decimal::from(100))
         }
     }
-    
+
     /// Update unrealized P&L based on current price
     pub fn _update_unrealized_pnl(&mut self, current_price: Decimal) {
         self.current_price = Some(current_price);
@@ -123,9 +123,9 @@ pub enum OrderStatus {
 /// Time in force
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TimeInForce {
-    GTC,  // Good Till Cancelled
-    IOC,  // Immediate or Cancel
-    FOK,  // Fill or Kill
+    GTC, // Good Till Cancelled
+    IOC, // Immediate or Cancel
+    FOK, // Fill or Kill
 }
 
 /// Portfolio statistics
@@ -151,12 +151,12 @@ impl PortfolioStats {
     pub fn total_portfolio_value(&self) -> Decimal {
         self.total_balance + self.total_unrealized_pnl
     }
-    
+
     /// Calculate total P&L
     pub fn total_pnl(&self) -> Decimal {
         self.total_realized_pnl + self.total_unrealized_pnl
     }
-    
+
     /// Calculate P&L percentage
     pub fn pnl_percentage(&self, initial_balance: Decimal) -> Option<Decimal> {
         if initial_balance.is_zero() {

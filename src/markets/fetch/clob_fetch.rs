@@ -3,14 +3,14 @@ use owo_colors::OwoColorize;
 use polymarket_rs_client::ClobClient;
 
 use crate::markets::{
-    storage::MarketStorage,
+    fetcher::{FetcherConfig, MarketFetcher},
     providers::ClobProvider,
-    fetcher::{MarketFetcher, FetcherConfig},
+    storage::MarketStorage,
     types::FetchState,
 };
 
 /// Fetch all markets with pagination and save to JSON file
-/// 
+///
 /// TODO: This is a placeholder. The full implementation needs to be
 /// migrated from the old markets.rs file. It includes:
 /// - State management for resumable fetching
@@ -25,18 +25,21 @@ pub async fn fetch_all_markets(
 ) -> Result<()> {
     // Create storage
     let storage = MarketStorage::new(output_dir, chunk_size_mb)?;
-    
+
     // Handle clear state
     if clear_state {
         if verbose {
-            println!("{}", "🗑️  Clearing previous state and data...".bright_yellow());
+            println!(
+                "{}",
+                "🗑️  Clearing previous state and data...".bright_yellow()
+            );
         }
         storage.clear_all()?;
     }
-    
+
     // Create provider
     let provider = ClobProvider::new(client);
-    
+
     // Create fetcher
     // Create fetcher with verbose config
     let config = if verbose {
@@ -48,9 +51,11 @@ pub async fn fetch_all_markets(
         Default::default()
     };
     let mut fetcher = MarketFetcher::with_config(provider, storage, config);
-    
+
     // Fetch all markets
-    fetcher.fetch_all::<FetchState>("fetch_state.json", "markets").await?;
-    
+    fetcher
+        .fetch_all::<FetchState>("fetch_state.json", "markets")
+        .await?;
+
     Ok(())
-} 
+}

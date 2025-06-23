@@ -31,15 +31,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Type-driven development** - let the type system prevent bugs
 - **Test Organization**: NEVER put tests in the same file as source code. Tests MUST be in separate `test/` directory with same folder path as file being tested (e.g., `src/markets/fetcher.rs` → `test/markets/fetcher.rs`). This prevents context pollution and improves code retrieval.
 
-### Warning Handling Rules
+### CRITICAL UNDERSCORE RULES (MUST FOLLOW)
 
-- **NEVER USE UNDERSCORES FOR**: Structs, Enums, Enum Variants, or Traits - ALWAYS REMOVE/DELETE THEM
-- **For Struct Fields**: Prefix with underscore ONLY if genuinely needed for future use
-- **For Function/Method Parameters**: Underscore prefix is acceptable
-- **For Local Variables**: Underscore prefix is acceptable
+#### NEVER Use Underscores for Methods - DELETE THEM INSTEAD
+- **ABSOLUTE RULE**: Methods (functions in impl blocks) must NEVER start with underscore
+- **NO UNDERSCORE METHODS**: Delete ALL methods like `fn _foo()`, `pub fn _bar()`, `async fn _baz()`
+- **DELETE, DON'T PREFIX**: If a method is unused, DELETE IT completely - do NOT add underscore
+- **ZERO TOLERANCE**: Not a single method in the entire codebase should start with underscore
+- **THIS MEANS**: `impl MyStruct { fn _helper() {} }` is FORBIDDEN - delete the method entirely
+
+#### Where Underscores Are FORBIDDEN (DELETE THESE):
+- ❌ **Methods/Functions in impl blocks**: `fn _method()` → DELETE IT
+- ❌ **Associated functions**: `pub fn _new()` → DELETE IT  
+- ❌ **Async methods**: `async fn _fetch()` → DELETE IT
+- ❌ **Private methods**: `fn _internal()` → DELETE IT
+- ❌ **Structs**: `struct _MyStruct` → DELETE IT
+- ❌ **Enums**: `enum _MyEnum` → DELETE IT
+- ❌ **Enum Variants**: `enum Foo { _Bar }` → DELETE THE VARIANT
+- ❌ **Traits**: `trait _MyTrait` → DELETE IT
+
+#### Where Underscores Are ALLOWED (ONLY THESE):
+- ✅ **Struct fields**: `struct Foo { _unused_field: String }` - Only if genuinely placeholder
+- ✅ **Function parameters**: `fn foo(_unused: String)` - For ignored parameters
+- ✅ **Local variables**: `let _result = something();` - For ignored values
+- ✅ **Pattern matching**: `match x { _ => {} }` - For catch-all patterns
+
+#### Handling Unused Code:
+- **Unused method?** → DELETE IT (never prefix with underscore)
+- **Unused struct?** → DELETE IT 
+- **Unused enum variant?** → DELETE IT
+- **Need it later?** → Comment it out with explanation or use #[allow(dead_code)] (but prefer deletion)
 - **Zero Warnings Policy**: Code must compile with absolutely zero warnings
-- **Unused Code**: REMOVE unused code instead of prefixing with underscore
-- **Temporary Files**: DELETE all .sh and test files after task completion
 
 ### Helper Workflows
 
@@ -53,11 +75,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 7. **Run tests**: `cargo test` - ensure all tests pass
 
 #### Common Warning Fixes
+- **Unused method**: DELETE IT IMMEDIATELY - NEVER prefix methods with underscore
+- **Method with underscore**: DELETE IT - underscore methods are FORBIDDEN
 - **Unused enum variant**: DELETE the variant (don't prefix with underscore)
 - **Unused struct**: DELETE the struct definition
-- **Unused method**: DELETE the method (unless genuinely needed soon)
+- **Unused function in impl block**: DELETE IT - no underscore prefixes allowed
 - **Unused imports**: Remove with `cargo fix` or manually
 - **Dead code**: Remove the code entirely
+- **REMEMBER**: `fn _anything()` is ALWAYS WRONG - delete it!
 
 #### Git Workflow Best Practices
 - Always check `git diff` before making large changes
@@ -69,16 +94,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Structs**: Use PascalCase, NEVER underscores → `OrderBook`, `MarketData`, `PriceLevel`
 - **Enums**: Use PascalCase, NEVER underscores → `OrderStatus`, `EventType`, `MarketState`
-- **Functions**: Use snake_case but avoid underscores in names when possible → `calculate_spread()`, `get_price()`
-- **Methods**: Use snake_case but avoid underscores in names when possible → `update_orderbook()`, `validate_order()`
+- **Functions**: Use snake_case → `calculate_spread()`, `get_price()`
+- **Methods**: Use snake_case, NEVER start with underscore → `update_orderbook()`, NOT `_update_orderbook()`
+- **CRITICAL METHOD RULE**: Methods starting with underscore are FORBIDDEN → Delete `fn _foo()` entirely
 - **Variables**: Use snake_case → `market_id`, `order_book`, `price_level`
 - **Constants**: Use SCREAMING_SNAKE_CASE → `MAX_ORDER_SIZE`, `DEFAULT_TIMEOUT`
 - **Modules**: Use snake_case → `order_management`, `market_data`, `websocket_client`
-- **Underscores ONLY for**: Function parameters, struct fields, and local variables when following Rust conventions
-- **Avoid underscores in**: Type names (structs, enums, traits), function names, method names unless absolutely necessary
+- **Underscores ONLY allowed for**: Function parameters (`fn foo(_unused: T)`), struct fields (`_field: Type`), and local variables (`let _x = y`)
+- **NEVER use underscores for**: Methods, functions in impl blocks, associated functions, traits, structs, or enums
 
 ### Anti-Patterns to Avoid
 
+- ❌ `fn _unused_method()` → ✅ DELETE THE METHOD ENTIRELY
+- ❌ `pub async fn _helper()` → ✅ DELETE IT - NO UNDERSCORE METHODS
+- ❌ `impl Foo { fn _internal() {} }` → ✅ DELETE THE METHOD
+- ❌ Prefixing unused methods with underscore → ✅ DELETE unused methods
 - ❌ `Vec<(Decimal, Decimal)>` → ✅ `Vec<PriceLevel>` with named fields
 - ❌ Standalone functions → ✅ `impl` methods on relevant structs
 - ❌ Raw string types → ✅ Strong types like `TokenId`, `MarketId`

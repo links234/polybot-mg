@@ -20,7 +20,7 @@ pub use types::{
 };
 
 // Storage
-pub use storage::{PortfolioStorage, PortfolioSnapshot, AccountBalances};
+pub use storage::PortfolioStorage;
 
 // Service
 pub use service::{

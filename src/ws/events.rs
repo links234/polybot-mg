@@ -231,7 +231,7 @@ pub struct UserOrderEvent {
     #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
     #[serde(
-        deserialize_with = "_deserialize_decimal_string",
+        deserialize_with = "deserialize_decimal_flexible",
         alias = "size_matched"
     )]
     pub _filled_size: Decimal,
@@ -279,15 +279,6 @@ where
         .collect())
 }
 
-/// Helper function to deserialize decimal from string
-fn _deserialize_decimal_string<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: String = Deserialize::deserialize(deserializer)?;
-    s.parse::<Decimal>()
-        .map_err(|_| serde::de::Error::custom("Invalid decimal format"))
-}
 
 /// Helper function to deserialize decimal from either string or number
 fn deserialize_decimal_flexible<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
@@ -389,10 +380,6 @@ where
     deserializer.deserialize_any(TimestampVisitor)
 }
 
-/// Default hash value for book events when hash field is missing
-fn _default_hash() -> String {
-    "unknown".to_string()
-}
 
 /// Parse a raw WebSocket message into typed events
 pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {

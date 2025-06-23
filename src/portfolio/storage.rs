@@ -272,21 +272,38 @@ impl PortfolioStorage {
         }
     }
 
-    /// Save current positions
-    pub async fn _save_positions(&self, positions: &[Position]) -> Result<()> {
-        self.init_directories().await?;
 
+    /// Save active orders to cache
+    pub async fn save_active_orders(&self, orders: &[PolymarketOrder]) -> Result<()> {
+        self.init_directories().await?;
+        
+        let filepath = self.account_dir.join("orders").join("active.json");
+        let json = serde_json::to_string_pretty(orders)?;
+        
+        fs::write(&filepath, json)
+            .await
+            .context("Failed to save active orders")?;
+            
+        info!("Saved {} active orders to cache", orders.len());
+        Ok(())
+    }
+
+    /// Save current positions
+    pub async fn save_positions(&self, positions: &[Position]) -> Result<()> {
+        self.init_directories().await?;
+        
         let filepath = self.account_dir.join("positions").join("current.json");
         let data = serde_json::json!({
             "timestamp": Utc::now(),
-            "positions": positions,
-            "count": positions.len(),
+            "positions": positions
         });
-
         let json = serde_json::to_string_pretty(&data)?;
-        fs::write(&filepath, json).await?;
-
-        info!("Saved {} positions", positions.len());
+        
+        fs::write(&filepath, json)
+            .await
+            .context("Failed to save positions")?;
+            
+        info!("Saved {} positions to cache", positions.len());
         Ok(())
     }
 
@@ -310,23 +327,6 @@ impl PortfolioStorage {
         }
     }
 
-    /// Save active orders cache
-    pub async fn _save_active_orders(&self, orders: &[PolymarketOrder]) -> Result<()> {
-        self.init_directories().await?;
-
-        let filepath = self.account_dir.join("orders").join("active.json");
-        let data = serde_json::json!({
-            "timestamp": Utc::now(),
-            "orders": orders,
-            "count": orders.len(),
-        });
-
-        let json = serde_json::to_string_pretty(&data)?;
-        fs::write(&filepath, json).await?;
-
-        info!("Saved {} active orders", orders.len());
-        Ok(())
-    }
 
     /// Record a trade
     #[allow(dead_code)]

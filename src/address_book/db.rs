@@ -33,8 +33,6 @@ pub struct SyncState {
 pub struct StoredDataSummary {
     pub total_activities: usize,
     pub total_positions: usize,
-    pub _earliest_activity: Option<DateTime<Utc>>,
-    pub _latest_activity: Option<DateTime<Utc>>,
     pub last_sync: Option<DateTime<Utc>>,
 }
 
@@ -285,28 +283,9 @@ impl HistoricalDatabase {
         Ok(StoredDataSummary {
             total_activities: sync_state.as_ref().map(|s| s.total_activities_stored).unwrap_or(0),
             total_positions: sync_state.as_ref().map(|s| s.total_positions_stored).unwrap_or(0),
-            _earliest_activity: None, // Could be extracted from first batch
-            _latest_activity: sync_state.as_ref().and_then(|s| s.last_activity_timestamp),
             last_sync: sync_state.as_ref().and_then(|s| s.last_sync_completed),
         })
     }
 
-    /// Clear all stored data for an address (use with caution)
-    pub async fn _clear_address_data(&self, address: &str) -> Result<()> {
-        let addr_path = self.get_address_path(address);
-        
-        if tokio::fs::try_exists(&addr_path).await.unwrap_or(false) {
-            tokio::fs::remove_dir_all(&addr_path).await
-                .with_context(|| format!("Failed to clear data for {}", address))?;
-            info!("Cleared all stored data for {}", address);
-        }
-        
-        Ok(())
-    }
 
-    /// Get the latest activity timestamp from stored data
-    pub async fn _get_latest_activity_timestamp(&self, address: &str) -> Result<Option<DateTime<Utc>>> {
-        let sync_state = self.get_sync_state(address).await?;
-        Ok(sync_state.and_then(|s| s.last_activity_timestamp))
-    }
 }

@@ -39,9 +39,6 @@ impl DatasetDiscovery {
         }
     }
 
-    pub fn _base_path(&self) -> &Path {
-        &self.base_path
-    }
 
     /// Discover all available datasets using a unified approach
     pub async fn discover_datasets(&self) -> Result<Vec<DiscoveredDataset>> {
@@ -405,45 +402,6 @@ impl DatasetDiscovery {
         }
     }
 
-    /// Extract token IDs from dataset files
-    fn _extract_token_ids(&self, dataset: &DatasetInfo) -> Vec<String> {
-        let mut token_ids = Vec::new();
-
-        // Look for market files that might contain token information
-        for file in &dataset.files {
-            if file.name.contains("markets") && file.name.ends_with(".json") {
-                // This is likely a markets file with token data
-                if let Ok(content) = std::fs::read_to_string(&dataset.path.join(&file.name)) {
-                    if let Ok(markets) = serde_json::from_str::<serde_json::Value>(&content) {
-                        if let Some(array) = markets.as_array() {
-                            for market in array.iter().take(5) {
-                                // Limit to first 5 for performance
-                                if let Some(tokens) = market.get("tokens") {
-                                    if let Some(tokens_array) = tokens.as_array() {
-                                        for token in tokens_array {
-                                            if let Some(token_id) =
-                                                token.get("token_id").and_then(|t| t.as_str())
-                                            {
-                                                token_ids.push(token_id.to_string());
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                break; // Only check the first markets file
-            }
-        }
-
-        // If no tokens found, use the dataset name
-        if token_ids.is_empty() {
-            token_ids.push(dataset.name.clone());
-        }
-
-        token_ids
-    }
 
     /// Extract market information from dataset
     fn extract_market_info(&self, dataset: &DatasetInfo) -> String {
@@ -530,33 +488,5 @@ impl DatasetDiscovery {
         format!("Dataset: {}", dataset.name)
     }
 
-    /// Group datasets by token for display
-    pub fn _group_by_token<'a>(
-        &self,
-        datasets: &'a [DiscoveredDataset],
-    ) -> HashMap<String, Vec<&'a DiscoveredDataset>> {
-        let mut grouped = HashMap::new();
 
-        for dataset in datasets {
-            grouped
-                .entry(dataset.token_id.clone())
-                .or_insert_with(Vec::new)
-                .push(dataset);
-        }
-
-        grouped
-    }
-
-    /// Get unique token IDs from discovered datasets
-    pub fn _get_token_ids(&self, datasets: &[DiscoveredDataset]) -> Vec<String> {
-        let mut token_ids: Vec<String> = datasets
-            .iter()
-            .map(|d| d.token_id.clone())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
-
-        token_ids.sort();
-        token_ids
-    }
 }

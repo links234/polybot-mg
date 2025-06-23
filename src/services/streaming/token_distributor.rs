@@ -59,37 +59,6 @@ impl TokenDistributor {
         update
     }
 
-    /// Remove tokens and return the distribution changes
-    pub fn _remove_tokens(&mut self, tokens: Vec<String>) -> DistributionUpdate {
-        let mut update = DistributionUpdate::new();
-        let mut workers_to_check = HashSet::new();
-
-        for token in tokens {
-            if let Some(worker_id) = self.token_to_worker.remove(&token) {
-                // Remove from worker assignment
-                if let Some(worker_tokens) = self.worker_assignments.get_mut(&worker_id) {
-                    worker_tokens.remove(&token);
-                    workers_to_check.insert(worker_id);
-                }
-
-                update._remove_token_from_worker(worker_id, token);
-                info!("Removed token from worker {}", worker_id);
-            }
-        }
-
-        // Clean up empty workers
-        for worker_id in workers_to_check {
-            if let Some(tokens) = self.worker_assignments.get(&worker_id) {
-                if tokens.is_empty() {
-                    self.worker_assignments.remove(&worker_id);
-                    update._remove_worker(worker_id);
-                    info!("Removed empty worker {}", worker_id);
-                }
-            }
-        }
-
-        update
-    }
 
     /// Get worker ID for a specific token
     pub fn get_worker_for_token(&self, token: &str) -> Option<usize> {
@@ -148,16 +117,6 @@ impl DistributionUpdate {
             .push(token);
     }
 
-    pub fn _remove_token_from_worker(&mut self, worker_id: usize, token: String) {
-        self.workers_to_remove
-            .entry(worker_id)
-            .or_insert_with(Vec::new)
-            .push(token);
-    }
-
-    pub fn _remove_worker(&mut self, worker_id: usize) {
-        self.workers_to_shutdown.push(worker_id);
-    }
 
     /// Check if this update has any changes
     pub fn has_changes(&self) -> bool {

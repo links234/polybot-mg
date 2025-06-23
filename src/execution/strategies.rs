@@ -30,8 +30,6 @@ pub trait Strategy: Send + Sync {
     /// Get strategy name
     fn name(&self) -> &str;
 
-    /// Get strategy configuration
-    fn _config(&self) -> &StrategyConfig;
 
     /// Initialize strategy
     async fn initialize(&mut self) -> Result<(), StrategyError>;
@@ -397,9 +395,6 @@ impl Strategy for MarketAnalysisStrategy {
         &self.config.name
     }
 
-    fn _config(&self) -> &StrategyConfig {
-        &self.config
-    }
 
     async fn initialize(&mut self) -> Result<(), StrategyError> {
         info!(strategy = %self.config.name, "Initializing market analysis strategy");
@@ -455,25 +450,25 @@ impl Strategy for LoggingStrategy {
             EventData::Market(market_event) => {
                 info!(
                     strategy = %self.config.name,
-                    event_id = %event.id._as_str(),
+                    event_id = %event.id.0,
                     event_type = "market",
-                    asset_id = ?market_event.asset_id(),
+                    asset_id = ?market_event,
                     "Processed market event"
                 );
             }
             EventData::User(user_event) => {
                 info!(
                     strategy = %self.config.name,
-                    event_id = %event.id._as_str(),
+                    event_id = %event.id.0,
                     event_type = "user",
-                    asset_id = ?user_event.asset_id(),
+                    asset_id = ?user_event,
                     "Processed user event"
                 );
             }
             EventData::System(_) => {
                 info!(
                     strategy = %self.config.name,
-                    event_id = %event.id._as_str(),
+                    event_id = %event.id.0,
                     event_type = "system",
                     "Processed system event"
                 );
@@ -481,7 +476,7 @@ impl Strategy for LoggingStrategy {
             EventData::Metrics(_) => {
                 debug!(
                     strategy = %self.config.name,
-                    event_id = %event.id._as_str(),
+                    event_id = %event.id.0,
                     event_type = "metrics",
                     "Processed metrics event"
                 );
@@ -502,9 +497,6 @@ impl Strategy for LoggingStrategy {
         &self.config.name
     }
 
-    fn _config(&self) -> &StrategyConfig {
-        &self.config
-    }
 
     async fn initialize(&mut self) -> Result<(), StrategyError> {
         info!(strategy = %self.config.name, "Initializing logging strategy");

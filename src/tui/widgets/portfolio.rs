@@ -34,31 +34,8 @@ pub enum PortfolioTab {
 }
 
 impl<'a> PortfolioWidget<'a> {
-    pub fn _new(
-        positions: &'a [Position],
-        orders: &'a [ActiveOrder],
-        stats: &'a PortfolioStats,
-        market_summaries: &'a [MarketPositionSummary],
-    ) -> Self {
-        Self {
-            positions,
-            orders,
-            stats,
-            market_summaries,
-            selected_tab: PortfolioTab::Overview,
-            _selected_index: 0,
-        }
-    }
 
-    pub fn _with_tab(mut self, tab: PortfolioTab) -> Self {
-        self.selected_tab = tab;
-        self
-    }
 
-    pub fn _with_selection(mut self, index: usize) -> Self {
-        self._selected_index = index;
-        self
-    }
 }
 
 impl<'a> Widget for PortfolioWidget<'a> {

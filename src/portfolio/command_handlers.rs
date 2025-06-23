@@ -180,10 +180,6 @@ impl PortfolioCommandHandlers {
         self.service_handle.refresh_data().await
     }
 
-    /// Create manual snapshot
-    pub async fn _create_snapshot(&self, reason: &str) -> Result<String> {
-        self.service_handle.create_snapshot(reason.to_string()).await
-    }
 
     /// Get user address
     pub fn get_address(&self) -> &str {

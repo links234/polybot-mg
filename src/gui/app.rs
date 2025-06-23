@@ -1600,12 +1600,6 @@ impl TradingApp {
         self.streaming_service = None;
     }
 
-    fn _refresh_positions(&mut self) {
-        // TODO: Implement position refresh logic (now handled by portfolio service)
-        self._is_fetching_positions = true;
-        self._last_position_fetch = Some(std::time::Instant::now());
-        info!("Refreshing positions...");
-    }
 
     fn load_available_datasets(data_paths: &DataPaths) -> Vec<DatasetInfo> {
         let mut datasets = Vec::new();

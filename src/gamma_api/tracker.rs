@@ -1,5 +1,7 @@
 //! Gamma tracker service with actor pattern
 
+#[allow(dead_code)]
+
 use anyhow::{Result, Context};
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -15,6 +17,7 @@ use crate::address_book::{AddressBookServiceHandle, AddressBookCommand};
 
 /// Commands that can be sent to the gamma tracker service
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum TrackerCommand {
     /// Track a new address
     TrackAddress {
@@ -80,6 +83,7 @@ pub enum TrackerCommand {
 }
 
 /// Gamma tracker service
+#[allow(dead_code)]
 pub struct GammaTracker {
     /// Gamma API client
     client: GammaApiClient,
@@ -97,6 +101,7 @@ pub struct GammaTracker {
     receiver: mpsc::Receiver<TrackerCommand>,
 }
 
+#[allow(dead_code)]
 impl GammaTracker {
     /// Create new gamma tracker
     pub async fn new(
@@ -542,10 +547,12 @@ impl GammaTracker {
 
 /// Handle to communicate with gamma tracker service
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct GammaTrackerHandle {
     sender: mpsc::Sender<TrackerCommand>,
 }
 
+#[allow(dead_code)]
 impl GammaTrackerHandle {
     pub fn new(sender: mpsc::Sender<TrackerCommand>) -> Self {
         Self { sender }
@@ -558,6 +565,7 @@ impl GammaTrackerHandle {
 }
 
 /// Start gamma tracker service
+#[allow(dead_code)]
 pub async fn start_gamma_tracker(
     data_paths: DataPaths,
     address_book: Option<Arc<AddressBookServiceHandle>>,
@@ -574,9 +582,11 @@ pub async fn start_gamma_tracker(
 }
 
 /// Global gamma tracker service instance
+#[allow(dead_code)]
 static GAMMA_TRACKER: tokio::sync::OnceCell<Arc<GammaTrackerHandle>> = tokio::sync::OnceCell::const_new();
 
 /// Get or create gamma tracker service handle
+#[allow(dead_code)]
 pub async fn get_gamma_tracker(
     data_paths: DataPaths,
     address_book: Option<Arc<AddressBookServiceHandle>>,

@@ -1,7 +1,7 @@
 //! Portfolio manager for tracking positions and orders
 
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -33,10 +33,7 @@ pub struct PortfolioManager {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 struct MarketInfo {
-    _market_id: String,
     market_question: String,
-    _token_outcomes: HashMap<String, String>,
-    _last_updated: DateTime<Utc>,
 }
 
 #[allow(dead_code)]
@@ -398,24 +395,6 @@ impl PortfolioManager {
         summaries
     }
 
-    /// Update market info
-    pub async fn _update_market_info(
-        &self,
-        market_id: String,
-        question: String,
-        token_outcomes: HashMap<String, String>,
-    ) {
-        let mut market_info = self.market_info.write().await;
-        market_info.insert(
-            market_id.clone(),
-            MarketInfo {
-                _market_id: market_id,
-                market_question: question,
-                _token_outcomes: token_outcomes,
-                _last_updated: Utc::now(),
-            },
-        );
-    }
 
     /// Get positions synchronously for TUI (non-blocking)
     pub fn get_positions_sync(&self) -> Vec<Position> {

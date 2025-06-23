@@ -126,7 +126,6 @@ struct CoreMetrics {
     total_value: f64,
     total_unrealized_pnl: f64,
     active_positions: usize,
-    _winning_positions: usize,
     total_positions: usize,
     win_rate: Option<rust_decimal::Decimal>,
 }
@@ -169,18 +168,16 @@ struct PositionTracker {
     total_proceeds: f64,
     /// Market info
     market_slug: String,
-    _outcome: String,
 }
 
 impl PositionTracker {
-    fn new(market_slug: String, outcome: String) -> Self {
+    fn new(market_slug: String, _outcome: String) -> Self {
         Self {
             total_shares: 0.0,
             total_cost: 0.0,
             total_shares_exited: 0.0,
             total_proceeds: 0.0,
             market_slug,
-            _outcome: outcome,
         }
     }
     
@@ -802,246 +799,6 @@ impl AddressBookService {
         Ok(stats)
     }
     
-    /// Fetch ALL positions with unlimited pagination (no artificial limits)
-    async fn _fetch_all_positions_unlimited(&self, address: &str, http_client: &Client) -> Result<Vec<Value>> {
-        info!("Fetching UNLIMITED positions for {}", address);
-        let mut all_positions = Vec::new();
-        let mut offset = 0;
-        let limit = 500; // API max limit
-        let mut batch_count = 0;
-        
-        // Print initial progress
-        println!("     📍 Fetching position data...");
-        
-        loop {
-            let url = format!(
-                "https://data-api.polymarket.com/positions?user={}&limit={}&offset={}", 
-                address, limit, offset
-            );
-            
-            info!("Fetching positions batch: offset={}, limit={}, total_so_far={}", offset, limit, all_positions.len());
-            
-            let positions = match self.fetch_with_retry(&url, http_client, "positions").await {
-                Ok(text) => {
-                    match serde_json::from_str::<Vec<Value>>(&text) {
-                        Ok(pos) => pos,
-                        Err(e) => {
-                            warn!("Failed to parse positions batch for {}: {}", address, e);
-                            warn!("Response text: {}", &text[..std::cmp::min(200, text.len())]);
-                            break;
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to fetch positions for {} after retries: {}", address, e);
-                    break;
-                }
-            };
-            
-            let batch_size = positions.len();
-            all_positions.extend(positions);
-            batch_count += 1;
-            
-            info!("Fetched {} positions in this batch, total: {}", batch_size, all_positions.len());
-            
-            // Print progress every 5 batches or when we get less than full batch
-            if batch_count % 5 == 0 || batch_size < limit {
-                println!("     📈 Progress: {} positions fetched (batch {})", all_positions.len(), batch_count);
-            }
-            
-            // If we got 0 results, we've reached the end
-            // Note: API returns max 500 even if we request 1000
-            if batch_size == 0 {
-                info!("Reached end of positions data for {}", address);
-                println!("     ✅ Completed: {} total positions", all_positions.len());
-                break;
-            }
-            
-            // If we got less than limit, we might be near the end
-            if batch_size < limit {
-                println!("     🏁 Near completion: {} positions fetched", all_positions.len());
-            }
-            
-            offset += limit;
-            
-            // Small delay between batches to be respectful to the API
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        }
-        
-        info!("Fetched ALL {} positions for {}", all_positions.len(), address);
-        Ok(all_positions)
-    }
-    
-    /// Fetch all positions with pagination and retry logic (deprecated - use unlimited version)
-    async fn _fetch_all_positions(&self, address: &str, http_client: &Client) -> Result<Vec<Value>> {
-        let mut all_positions = Vec::new();
-        let mut offset = 0;
-        let limit = 500; // API max limit
-        
-        loop {
-            let url = format!(
-                "https://data-api.polymarket.com/positions?user={}&limit={}&offset={}", 
-                address, limit, offset
-            );
-            
-            info!("Fetching positions batch: offset={}, limit={}", offset, limit);
-            
-            let positions = match self.fetch_with_retry(&url, http_client, "positions").await {
-                Ok(text) => {
-                    match serde_json::from_str::<Vec<Value>>(&text) {
-                        Ok(pos) => pos,
-                        Err(e) => {
-                            warn!("Failed to parse positions batch for {}: {}", address, e);
-                            warn!("Response text: {}", &text[..std::cmp::min(200, text.len())]);
-                            break;
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to fetch positions for {} after retries: {}", address, e);
-                    break;
-                }
-            };
-            
-            let batch_size = positions.len();
-            all_positions.extend(positions);
-            
-            info!("Fetched {} positions in this batch, total: {}", batch_size, all_positions.len());
-            
-            // If we got less than the limit, we've reached the end
-            if batch_size < limit {
-                break;
-            }
-            
-            offset += limit;
-            
-            // Small delay between batches to be respectful to the API
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        }
-        
-        Ok(all_positions)
-    }
-    
-    /// Fetch ALL activity with unlimited pagination (no artificial limits)
-    async fn _fetch_all_activity_unlimited(&self, address: &str, http_client: &Client) -> Result<Vec<Value>> {
-        info!("Fetching UNLIMITED activity for {}", address);
-        let mut all_activity = Vec::new();
-        let mut offset = 0;
-        let limit = 500; // API max limit
-        let mut batch_count = 0;
-        
-        // Print initial progress
-        println!("     📊 Fetching activity data...");
-        
-        loop {
-            let url = format!(
-                "https://data-api.polymarket.com/activity?user={}&limit={}&offset={}", 
-                address, limit, offset
-            );
-            
-            info!("Fetching activity batch: offset={}, limit={}, total_so_far={}", offset, limit, all_activity.len());
-            
-            let activity = match self.fetch_with_retry(&url, http_client, "activity").await {
-                Ok(text) => {
-                    match serde_json::from_str::<Vec<Value>>(&text) {
-                        Ok(act) => act,
-                        Err(e) => {
-                            warn!("Failed to parse activity batch for {}: {}", address, e);
-                            warn!("Response text: {}", &text[..std::cmp::min(200, text.len())]);
-                            break;
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to fetch activity for {} after retries: {}", address, e);
-                    break;
-                }
-            };
-            
-            let batch_size = activity.len();
-            all_activity.extend(activity);
-            batch_count += 1;
-            
-            info!("Fetched {} activities in this batch, total: {}", batch_size, all_activity.len());
-            
-            // Print progress every 5 batches or when we get less than full batch
-            if batch_count % 5 == 0 || batch_size < limit {
-                println!("     📈 Progress: {} activities fetched (batch {})", all_activity.len(), batch_count);
-            }
-            
-            // If we got 0 results, we've reached the end
-            // Note: API returns max 500 even if we request 1000
-            if batch_size == 0 {
-                info!("Reached end of activity data for {}", address);
-                println!("     ✅ Completed: {} total activities", all_activity.len());
-                break;
-            }
-            
-            // If we got less than limit, we might be near the end
-            if batch_size < limit {
-                println!("     🏁 Near completion: {} activities fetched", all_activity.len());
-            }
-            
-            offset += limit;
-            
-            // Small delay between batches to be respectful to the API
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        }
-        
-        info!("Fetched ALL {} activities for {}", all_activity.len(), address);
-        Ok(all_activity)
-    }
-    
-    /// Fetch all activity with pagination and retry logic (deprecated - use unlimited version)
-    async fn _fetch_all_activity(&self, address: &str, http_client: &Client) -> Result<Vec<Value>> {
-        let mut all_activity = Vec::new();
-        let mut offset = 0;
-        let limit = 500; // API max limit
-        
-        loop {
-            let url = format!(
-                "https://data-api.polymarket.com/activity?user={}&limit={}&offset={}", 
-                address, limit, offset
-            );
-            
-            info!("Fetching activity batch: offset={}, limit={}", offset, limit);
-            
-            let activity = match self.fetch_with_retry(&url, http_client, "activity").await {
-                Ok(text) => {
-                    match serde_json::from_str::<Vec<Value>>(&text) {
-                        Ok(act) => act,
-                        Err(e) => {
-                            warn!("Failed to parse activity batch for {}: {}", address, e);
-                            warn!("Response text: {}", &text[..std::cmp::min(200, text.len())]);
-                            break;
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to fetch activity for {} after retries: {}", address, e);
-                    break;
-                }
-            };
-            
-            let batch_size = activity.len();
-            all_activity.extend(activity);
-            
-            info!("Fetched {} activities in this batch, total: {}", batch_size, all_activity.len());
-            
-            // If we got less than the limit, we've reached the end
-            if batch_size < limit {
-                break;
-            }
-            
-            offset += limit;
-            
-            // Small delay between batches to be respectful to the API
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        }
-        
-        Ok(all_activity)
-    }
-    
     /// Fetch positions incrementally, loading only new data since last sync
     async fn fetch_all_positions_incremental(
         &self,
@@ -1476,7 +1233,6 @@ impl AddressBookService {
             total_value,
             total_unrealized_pnl,
             active_positions,
-            _winning_positions: winning_positions,
             total_positions,
             win_rate,
         }
@@ -1848,7 +1604,6 @@ impl AddressBookService {
             }
         }
     }
-    
 }
 
 /// Handle to communicate with address book service

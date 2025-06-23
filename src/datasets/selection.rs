@@ -3,7 +3,6 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::{debug, info};
@@ -403,24 +402,6 @@ impl SelectionManager {
         }
     }
 
-    /// Save a selection
-    pub fn _save_selection(&self, selection: &TokenSelection) -> Result<()> {
-        self.ensure_directory()?;
-
-        let path = self.get_selection_path(&selection.name);
-        let json =
-            serde_json::to_string_pretty(selection).context("Failed to serialize selection")?;
-
-        fs::write(&path, json)
-            .with_context(|| format!("Failed to write selection file: {}", path.display()))?;
-
-        info!(
-            "Saved selection '{}' with {} tokens",
-            selection.name,
-            selection.tokens.len()
-        );
-        Ok(())
-    }
 
     /// Delete a selection
     pub fn delete_selection(&self, name: &str) -> Result<()> {
@@ -441,157 +422,11 @@ impl SelectionManager {
         Ok(selection.tokens.into_iter().map(|t| t.token_id).collect())
     }
 
-    /// Get detailed information about all selections (both explicit and implicit)
-    pub fn _get_all_selections_info(&self) -> Result<Vec<(TokenSelection, bool)>> {
-        let mut all_selections = Vec::new();
 
-        // Get explicit selections
-        let explicit_names = self.list_selections()?;
-        for name in explicit_names {
-            if let Ok(selection) = self.load_selection(&name) {
-                all_selections.push((selection, true)); // true = explicit
-            }
-        }
 
-        // Get implicit selections
-        let implicit_selections = self.discover_implicit_selections()?;
-        for implicit in implicit_selections {
-            let selection = self.convert_implicit_to_explicit(&implicit);
-            all_selections.push((selection, false)); // false = implicit
-        }
-
-        Ok(all_selections)
-    }
-
-    /// Create a new selection
-    pub fn _create_selection(
-        &self,
-        name: String,
-        description: Option<String>,
-        tokens: Vec<String>,
-    ) -> Result<TokenSelection> {
-        let now = Utc::now();
-
-        let token_infos: Vec<TokenInfo> = tokens
-            .into_iter()
-            .map(|token_id| TokenInfo {
-                token_id,
-                name: None,
-                market: None,
-                added_at: now,
-            })
-            .collect();
-
-        let selection = TokenSelection {
-            name,
-            description,
-            created_at: now,
-            modified_at: now,
-            tokens: token_infos,
-            tags: Vec::new(),
-            metadata: SelectionMetadata {
-                created_by: "user".to_string(),
-                version: 1,
-                notes: None,
-            },
-        };
-
-        Ok(selection)
-    }
-
-    /// Add tokens to an existing selection
-    pub fn _add_tokens(&self, name: &str, tokens: Vec<String>) -> Result<()> {
-        let mut selection = self.load_selection(name)?;
-        let now = Utc::now();
-
-        // Get existing token IDs to avoid duplicates
-        let existing: HashSet<String> = selection
-            .tokens
-            .iter()
-            .map(|t| t.token_id.clone())
-            .collect();
-
-        // Add new tokens
-        for token_id in tokens {
-            if !existing.contains(&token_id) {
-                selection.tokens.push(TokenInfo {
-                    token_id,
-                    name: None,
-                    market: None,
-                    added_at: now,
-                });
-            }
-        }
-
-        selection.modified_at = now;
-        self._save_selection(&selection)?;
-
-        Ok(())
-    }
-
-    /// Remove tokens from a selection
-    pub fn _remove_tokens(&self, name: &str, tokens: &[String]) -> Result<()> {
-        let mut selection = self.load_selection(name)?;
-        let tokens_set: HashSet<&str> = tokens.iter().map(|s| s.as_str()).collect();
-
-        selection
-            .tokens
-            .retain(|t| !tokens_set.contains(t.token_id.as_str()));
-        selection.modified_at = Utc::now();
-
-        self._save_selection(&selection)?;
-        Ok(())
-    }
 
     fn get_selection_path(&self, name: &str) -> PathBuf {
         self.base_path.join(format!("{}.json", name))
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    #[test]
-    fn test_selection_management() {
-        let temp_dir = TempDir::new().unwrap();
-        let manager = SelectionManager::new(temp_dir.path());
-
-        // Create a selection
-        let selection = manager
-            .create_selection(
-                "my_favorites".to_string(),
-                Some("My favorite prediction markets".to_string()),
-                vec!["token123".to_string(), "token456".to_string()],
-            )
-            .unwrap();
-
-        // Save it
-        manager.save_selection(&selection).unwrap();
-
-        // List selections
-        let selections = manager.list_selections().unwrap();
-        assert_eq!(selections.len(), 1);
-        assert_eq!(selections[0], "my_favorites");
-
-        // Load it back
-        let loaded = manager.load_selection("my_favorites").unwrap();
-        assert_eq!(loaded.name, "my_favorites");
-        assert_eq!(loaded.tokens.len(), 2);
-
-        // Add more tokens
-        manager
-            .add_tokens("my_favorites", vec!["token789".to_string()])
-            .unwrap();
-
-        // Verify
-        let updated = manager.load_selection("my_favorites").unwrap();
-        assert_eq!(updated.tokens.len(), 3);
-
-        // Delete it
-        manager.delete_selection("my_favorites").unwrap();
-        let selections = manager.list_selections().unwrap();
-        assert_eq!(selections.len(), 0);
-    }
-}

@@ -78,24 +78,6 @@ impl EventAggregator {
         self.start_stats_collection().await;
     }
 
-    /// Stop the aggregator
-    pub async fn _stop(&self) {
-        let mut is_running = self.is_running.write().await;
-        if !*is_running {
-            return;
-        }
-
-        *is_running = false;
-
-        // Stop all aggregation tasks
-        let mut tasks = self.aggregation_tasks.write().await;
-        for (worker_id, task) in tasks.drain() {
-            task.abort();
-            debug!("Stopped aggregation task for worker {}", worker_id);
-        }
-
-        info!("Event aggregator stopped");
-    }
 
     /// Add a worker's event receiver
     pub async fn add_worker(&self, worker_id: usize, receiver: broadcast::Receiver<PolyEvent>) {

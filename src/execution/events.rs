@@ -39,13 +39,6 @@ impl EventId {
         Self(uuid::Uuid::new_v4().to_string())
     }
 
-    pub fn _from_string(id: String) -> Self {
-        Self(id)
-    }
-
-    pub fn _as_str(&self) -> &str {
-        &self.0
-    }
 }
 
 impl Default for EventId {
@@ -297,7 +290,7 @@ impl ExecutionEvent {
     /// Create a new market event
     pub fn market(data: MarketEvent, source: EventSource) -> Self {
         let id = EventId::new();
-        debug!(event_id = %id._as_str(), event_type = "market", "Creating market event");
+        debug!(event_id = %id.0, event_type = "market", "Creating market event");
 
         Self {
             id,
@@ -312,7 +305,7 @@ impl ExecutionEvent {
     /// Create a new user event
     pub fn user(data: UserEvent, source: EventSource) -> Self {
         let id = EventId::new();
-        debug!(event_id = %id._as_str(), event_type = "user", "Creating user event");
+        debug!(event_id = %id.0, event_type = "user", "Creating user event");
 
         Self {
             id,
@@ -354,61 +347,8 @@ impl ExecutionEvent {
     //     }
     // }
 
-    /// Mark event as processed
-    pub fn _mark_processed(&mut self) {
-        self._processed_at = Some(Instant::now());
-
-        if let Some(start_time) = self._processed_at {
-            // This is a placeholder - in real implementation we'd track from creation
-            self.metadata.processing_duration = Some(start_time.elapsed());
-        }
-    }
-
-    /// Add a tag to the event
-    pub fn _with_tag(mut self, key: String, value: String) -> Self {
-        self.metadata.tags.insert(key, value);
-        self
-    }
-
-    /// Set event priority
-    pub fn _with_priority(mut self, priority: EventPriority) -> Self {
-        self.metadata.priority = priority;
-        self
-    }
-
-    /// Get the asset ID if this is a market event
-    pub fn _asset_id(&self) -> Option<&AssetId> {
-        match &self.data {
-            EventData::Market(market_event) => Some(market_event._asset_id()),
-            EventData::User(user_event) => Some(user_event._asset_id()),
-            _ => None,
-        }
-    }
 }
 
-impl MarketEvent {
-    /// Get the asset ID for this market event
-    pub fn _asset_id(&self) -> &AssetId {
-        match self {
-            MarketEvent::OrderBookSnapshot { asset_id, .. } => asset_id,
-            MarketEvent::PriceChange { asset_id, .. } => asset_id,
-            MarketEvent::Trade { asset_id, .. } => asset_id,
-            MarketEvent::TickSizeChange { asset_id, .. } => asset_id,
-            MarketEvent::MarketStatus { asset_id, .. } => asset_id,
-        }
-    }
-}
-
-impl UserEvent {
-    /// Get the asset ID for this user event
-    pub fn _asset_id(&self) -> &AssetId {
-        match self {
-            UserEvent::OrderUpdate { asset_id, .. } => asset_id,
-            UserEvent::UserTrade { asset_id, .. } => asset_id,
-            UserEvent::BalanceUpdate { asset_id, .. } => asset_id,
-        }
-    }
-}
 
 /// Convert from WebSocket PolyEvent to ExecutionEvent
 impl From<PolyEvent> for ExecutionEvent {
@@ -555,13 +495,10 @@ mod tests {
             feed_type: FeedType::Market,
         };
 
-        let event = ExecutionEvent::market(market_event, source)
-            ._with_tag("test".to_string(), "value".to_string())
-            ._with_priority(EventPriority::High);
+        let event = ExecutionEvent::market(market_event, source);
 
-        assert_eq!(event.metadata.priority, EventPriority::High);
-        assert_eq!(event.metadata.tags.get("test"), Some(&"value".to_string()));
-        assert!(event._asset_id().is_some());
+        assert_eq!(event.metadata.priority, EventPriority::Normal);
+        assert!(event.metadata.tags.is_empty());
     }
 
     #[test]

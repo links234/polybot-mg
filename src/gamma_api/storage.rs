@@ -1,5 +1,7 @@
 //! Storage layer for Gamma API data
 
+#[allow(dead_code)]
+
 use anyhow::{Result, Context};
 use std::path::{Path, PathBuf};
 use tokio::fs;
@@ -11,6 +13,7 @@ use crate::data::DataPaths;
 
 /// User-specific data paths for gamma data
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct UserDataPaths {
     /// Base directory for this user
     base_dir: PathBuf,
@@ -19,6 +22,7 @@ pub struct UserDataPaths {
     address: String,
 }
 
+#[allow(dead_code)]
 impl UserDataPaths {
     /// Create new user data paths
     pub fn new(data_paths: &DataPaths, address: &str) -> Self {
@@ -81,11 +85,13 @@ impl UserDataPaths {
 }
 
 /// Gamma data storage manager
+#[allow(dead_code)]
 pub struct GammaStorage {
     /// Base data paths
     data_paths: DataPaths,
 }
 
+#[allow(dead_code)]
 impl GammaStorage {
     /// Create new gamma storage
     pub fn new(data_paths: DataPaths) -> Self {
@@ -399,6 +405,7 @@ impl GammaStorage {
 
 /// User storage statistics
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct UserStorageStats {
     pub address: String,
     pub has_metadata: bool,

@@ -1,11 +1,14 @@
 //! Type definitions for Gamma API responses
 
+#[allow(dead_code)]
+
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// Gamma API error types
 #[derive(Debug, thiserror::Error)]
+#[allow(dead_code)]
 pub enum GammaError {
     #[error("HTTP request failed: {0}")]
     HttpError(#[from] reqwest::Error),
@@ -284,6 +287,7 @@ pub struct PortfolioSummary {
 
 /// Query parameters for Gamma API
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct GammaQuery {
     /// Limit number of results
     pub limit: Option<usize>,
@@ -307,6 +311,7 @@ pub struct GammaQuery {
     pub activity_type: Option<ActivityType>,
 }
 
+#[allow(dead_code)]
 impl GammaMetadata {
     /// Create new metadata for an address
     pub fn new(address: String, is_own_address: bool) -> Self {

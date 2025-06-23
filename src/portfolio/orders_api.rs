@@ -4,8 +4,7 @@ use crate::auth_env;
 use crate::config;
 use crate::data_paths::DataPaths;
 use anyhow::{anyhow, Result};
-use polymarket_rs_client::ClobClient;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderValue};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -59,60 +58,6 @@ pub struct OrdersResponse {
     pub _next: Option<String>,
 }
 
-/// Fetch orders directly from the Polymarket API using proper authentication
-pub async fn _fetch_orders_authenticated(_client: &ClobClient) -> Result<Vec<PolymarketOrder>> {
-    // First, we need to get the host from the client
-    // Since ClobClient doesn't expose the host, we'll need to use the standard endpoint
-    let host = "https://clob.polymarket.com";
-    let endpoint = "/data/orders";
-    let url = format!("{}{}", host, endpoint);
-
-    debug!("Fetching orders from: {}", url);
-
-    // Build request with authentication
-    // Note: This is a workaround since polymarket-rs-client doesn't expose proper order deserialization
-    let http_client = reqwest::Client::new();
-
-    // For now, we'll use the client to ensure we're authenticated, then make a direct request
-    // In a production environment, you'd want to extract the headers from the client
-    info!("⚠️  Using direct API call due to library limitations");
-
-    // Make the request
-    let response = http_client
-        .get(&url)
-        .header(CONTENT_TYPE, "application/json")
-        .send()
-        .await
-        .map_err(|e| anyhow!("Failed to send request: {}", e))?;
-
-    let status = response.status();
-    debug!("Response status: {}", status);
-
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "No error details".to_string());
-        return Err(anyhow!(
-            "API request failed with status {}: {}",
-            status,
-            error_text
-        ));
-    }
-
-    // Parse the response
-    let orders_response: OrdersResponse = response
-        .json()
-        .await
-        .map_err(|e| anyhow!("Failed to parse response: {}", e))?;
-
-    info!(
-        "Successfully fetched {} orders",
-        orders_response._orders.len()
-    );
-
-    Ok(orders_response._orders)
-}
 
 /// Fetch orders using the authenticated client's internal methods
 /// Fetch user account balance from Polymarket API
@@ -227,27 +172,6 @@ pub async fn fetch_balance(
     Err(anyhow!("All balance endpoints failed. Balance information may not be available through the documented API."))
 }
 
-pub async fn _fetch_orders_via_client(client: ClobClient) -> Result<Vec<PolymarketOrder>> {
-    info!("Fetching orders via polymarket-rs-client...");
-
-    // Use the client's get_orders method
-    let raw_orders = client
-        .get_orders(None, None)
-        .await
-        .map_err(|e| anyhow!("Failed to fetch orders via client: {}", e))?;
-
-    // The problem is that OpenOrder from polymarket-rs-client doesn't expose its fields
-    // and doesn't implement Serialize, so we can't easily convert it
-
-    warn!(
-        "⚠️  Found {} orders but cannot deserialize OpenOrder type from polymarket-rs-client",
-        raw_orders.len()
-    );
-    warn!("    The library needs to expose order fields or implement Serialize trait");
-
-    // For now, return empty vec since we can't access the order data
-    Ok(vec![])
-}
 
 /// Build authentication headers for Polymarket API
 pub fn build_auth_headers(

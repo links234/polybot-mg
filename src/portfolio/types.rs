@@ -40,10 +40,6 @@ pub struct Position {
 }
 
 impl Position {
-    /// Calculate current value of position
-    pub fn _current_value(&self) -> Option<Decimal> {
-        self.current_price.map(|price| self.size * price)
-    }
 
     /// Calculate total P&L (realized + unrealized)
     pub fn total_pnl(&self) -> Decimal {
@@ -60,17 +56,6 @@ impl Position {
         }
     }
 
-    /// Update unrealized P&L based on current price
-    pub fn _update_unrealized_pnl(&mut self, current_price: Decimal) {
-        self.current_price = Some(current_price);
-        let cost_basis = self.size * self.average_price;
-        let current_value = self.size * current_price;
-        self.unrealized_pnl = Some(match self.side {
-            PositionSide::Long => current_value - cost_basis,
-            PositionSide::Short => cost_basis - current_value,
-        });
-        self.updated_at = Utc::now();
-    }
 }
 
 /// Active order information

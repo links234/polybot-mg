@@ -3,7 +3,6 @@
 //! This module provides formatting and display utilities for portfolio data
 //! including positions, orders, trades, and statistics.
 
-use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 
 use crate::portfolio::types::*;
@@ -53,16 +52,6 @@ impl<'a> PortfolioStatsFormatter<'a> {
         output
     }
 
-    /// Format as compact summary
-    pub fn _format_compact(&self) -> String {
-        format!(
-            "Portfolio: ${:.2} total, ${:.2} P&L ({} positions, {} open)",
-            self.stats.total_balance,
-            self.stats.total_pnl(),
-            self.stats.total_positions,
-            self.stats.open_positions
-        )
-    }
 }
 
 /// Format positions for display
@@ -125,29 +114,6 @@ impl<'a> PositionsFormatter<'a> {
         output
     }
 
-    /// Format as compact list
-    pub fn _format_compact(&self) -> String {
-        if self.positions.is_empty() {
-            return "No positions".to_string();
-        }
-
-        let mut output = String::new();
-        for (i, position) in self.positions.iter().enumerate() {
-            if i > 0 {
-                output.push_str(", ");
-            }
-            output.push_str(&format!(
-                "{} {} (${:.2})",
-                position.outcome,
-                match position.side {
-                    PositionSide::Long => "LONG",
-                    PositionSide::Short => "SHORT",
-                },
-                position.total_pnl()
-            ));
-        }
-        output
-    }
 }
 
 /// Format active orders for display
@@ -213,14 +179,6 @@ impl<'a> OrdersFormatter<'a> {
         output
     }
 
-    /// Format as compact list
-    pub fn _format_compact(&self) -> String {
-        if self.orders.is_empty() {
-            return "No active orders".to_string();
-        }
-
-        format!("{} active orders", self.orders.len())
-    }
 }
 
 /// Format trade history for display
@@ -285,15 +243,6 @@ impl<'a> TradesFormatter<'a> {
         output
     }
 
-    /// Format as compact summary
-    pub fn _format_compact(&self) -> String {
-        if self.trades.is_empty() {
-            return "No trades".to_string();
-        }
-
-        let recent_count = self.trades.iter().rev().take(5).count();
-        format!("{} total trades ({} recent)", self.trades.len(), recent_count)
-    }
 }
 
 /// Portfolio dashboard formatter
@@ -367,45 +316,5 @@ impl<'a> DashboardFormatter<'a> {
         output
     }
 
-    /// Format compact summary
-    pub fn _format_summary(&self) -> String {
-        let stats_formatter = PortfolioStatsFormatter::new(&self.portfolio_state.stats);
-        let positions_formatter = PositionsFormatter::new(&self.portfolio_state.positions);
-        let orders_formatter = OrdersFormatter::new(&self.portfolio_state.active_orders);
-        
-        format!(
-            "📊 Portfolio Summary\n{}\nPositions: {}\nOrders: {}",
-            stats_formatter._format_compact(),
-            positions_formatter._format_compact(),
-            orders_formatter._format_compact()
-        )
-    }
 }
 
-/// Format decimal with color based on positive/negative value
-pub fn _format_pnl(value: Decimal) -> String {
-    if value >= Decimal::ZERO {
-        format!("+${:.2}", value)
-    } else {
-        format!("-${:.2}", value.abs())
-    }
-}
-
-/// Format percentage with color
-pub fn _format_percentage(value: Decimal) -> String {
-    if value >= Decimal::ZERO {
-        format!("+{:.1}%", value)
-    } else {
-        format!("-{:.1}%", value.abs())
-    }
-}
-
-/// Format timestamp for display
-pub fn _format_timestamp(timestamp: DateTime<Utc>) -> String {
-    timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string()
-}
-
-/// Format compact timestamp
-pub fn _format_timestamp_compact(timestamp: DateTime<Utc>) -> String {
-    timestamp.format("%m-%d %H:%M").to_string()
-}

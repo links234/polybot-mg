@@ -259,45 +259,7 @@ impl AddressBookStorage {
         Ok(entries)
     }
 
-    /// Store address-specific data
-    pub async fn _store_address_data<T: serde::Serialize>(
-        &self,
-        address: &str,
-        data_type: &str,
-        data: &T,
-    ) -> Result<()> {
-        let address_dir = self.base_dir.join("addresses").join(address);
-        fs::create_dir_all(&address_dir).await?;
-        
-        let file_path = address_dir.join(format!("{}.json", data_type));
-        let json = serde_json::to_string_pretty(data)?;
-        
-        fs::write(&file_path, json).await?;
-        debug!("Stored {} data for address {}", data_type, address);
-        
-        Ok(())
-    }
 
-    /// Load address-specific data
-    pub async fn _load_address_data<T: serde::de::DeserializeOwned>(
-        &self,
-        address: &str,
-        data_type: &str,
-    ) -> Result<Option<T>> {
-        let file_path = self.base_dir
-            .join("addresses")
-            .join(address)
-            .join(format!("{}.json", data_type));
-        
-        if !file_path.exists() {
-            return Ok(None);
-        }
-        
-        let content = fs::read_to_string(&file_path).await?;
-        let data: T = serde_json::from_str(&content)?;
-        
-        Ok(Some(data))
-    }
 }
 
 /// Validate Ethereum address format

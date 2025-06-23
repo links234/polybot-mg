@@ -23,6 +23,7 @@ use crate::portfolio::orders_api::PolymarketOrder;
 use crate::portfolio::Position;
 use rust_decimal::Decimal;
 
+#[allow(dead_code)]
 pub struct App {
     pub user_address: String,
     pub orders: Vec<PolymarketOrder>,
@@ -34,6 +35,7 @@ pub struct App {
     pub should_quit: bool,
 }
 
+#[allow(dead_code)]
 impl App {
     pub fn new(
         user_address: String,
@@ -145,6 +147,7 @@ impl App {
     }
 }
 
+#[allow(dead_code)]
 pub async fn run_portfolio_tui(
     user_address: String,
     orders: Vec<PolymarketOrder>,
@@ -165,6 +168,7 @@ pub async fn run_portfolio_tui(
     res
 }
 
+#[allow(dead_code)]
 fn setup_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -174,6 +178,7 @@ fn setup_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
     Ok(terminal)
 }
 
+#[allow(dead_code)]
 fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
     disable_raw_mode()?;
     execute!(
@@ -185,6 +190,7 @@ fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result
     Ok(())
 }
 
+#[allow(dead_code)]
 async fn run_app(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app: &mut App) -> Result<()> {
     loop {
         terminal.draw(|f| ui(f, app))?;
@@ -223,6 +229,7 @@ async fn run_app(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app: &mut Ap
     }
 }
 
+#[allow(dead_code)]
 fn ui(f: &mut Frame, app: &App) {
     let size = f.area();
 
@@ -267,6 +274,7 @@ fn ui(f: &mut Frame, app: &App) {
     render_footer(f, chunks[4]);
 }
 
+#[allow(dead_code)]
 fn render_header(f: &mut Frame, area: Rect, app: &App) {
     let header_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -335,6 +343,7 @@ fn render_header(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(summary_paragraph, header_chunks[1]);
 }
 
+#[allow(dead_code)]
 fn render_tabs(f: &mut Frame, area: Rect, app: &App) {
     let titles = vec!["Orders", "Positions"];
     let tabs = Tabs::new(titles)
@@ -354,6 +363,7 @@ fn render_tabs(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(tabs, area);
 }
 
+#[allow(dead_code)]
 fn render_orders(f: &mut Frame, area: Rect, app: &App) {
     let orders = &app.orders;
 
@@ -438,6 +448,7 @@ fn render_orders(f: &mut Frame, area: Rect, app: &App) {
     f.render_stateful_widget(t, area, &mut app.orders_state.clone());
 }
 
+#[allow(dead_code)]
 fn render_positions(f: &mut Frame, area: Rect, app: &App) {
     use crate::portfolio::{PositionSide, PositionStatus};
 
@@ -549,6 +560,7 @@ fn render_positions(f: &mut Frame, area: Rect, app: &App) {
     f.render_stateful_widget(table, area, &mut app.positions_state.clone());
 }
 
+#[allow(dead_code)]
 fn render_order_details(f: &mut Frame, area: Rect, app: &App) {
     let block = Block::default()
         .borders(Borders::ALL)
@@ -643,6 +655,7 @@ fn render_order_details(f: &mut Frame, area: Rect, app: &App) {
     }
 }
 
+#[allow(dead_code)]
 fn render_footer(f: &mut Frame, area: Rect) {
     let footer_text = vec![
         Span::raw("Navigate: "),

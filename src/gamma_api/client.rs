@@ -1,5 +1,7 @@
 //! Gamma API client implementation
 
+#[allow(dead_code)]
+
 use anyhow::{Result, Context};
 use reqwest::Client;
 use serde_json::Value;
@@ -9,6 +11,7 @@ use tracing::{info, debug, warn};
 use super::types::*;
 
 /// Gamma API endpoints
+#[allow(dead_code)]
 pub struct GammaEndpoints {
     /// Base URL for Gamma API
     pub base_url: String,
@@ -36,6 +39,7 @@ impl Default for GammaEndpoints {
 }
 
 /// Gamma API client
+#[allow(dead_code)]
 pub struct GammaApiClient {
     /// HTTP client
     client: Client,
@@ -47,6 +51,7 @@ pub struct GammaApiClient {
     timeout: Duration,
 }
 
+#[allow(dead_code)]
 impl GammaApiClient {
     /// Create new Gamma API client
     pub fn new() -> Result<Self> {

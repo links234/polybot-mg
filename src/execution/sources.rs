@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::mpsc;
 // use async_trait::async_trait; // Commented out - not currently used
-use tracing::{error, info};
+use tracing::error;
 
 use super::config::{AssetId, ReplayConfig, WebSocketConfig};
 use super::events::ExecutionEvent;
@@ -112,25 +112,6 @@ struct WebSocketDataSource {
     _health: SourceHealth,
 }
 
-impl WebSocketDataSource {
-    /// Create a new WebSocket data source
-    pub fn _new(config: WebSocketConfig, assets: Vec<AssetId>) -> Self {
-        info!(
-            assets_count = assets.len(),
-            market_url = %config.market_url,
-            "Creating WebSocket data source"
-        );
-
-        Self {
-            _config: config,
-            _assets: assets,
-            _client: None,
-            _event_tx: None,
-            _is_running: false,
-            _health: SourceHealth::Disconnected,
-        }
-    }
-}
 
 // COMMENTED OUT: Implementation depends on DataSource trait
 /*
@@ -201,14 +182,6 @@ pub struct WebSocketEventStream {
     _stats: StreamStats,
 }
 
-impl WebSocketEventStream {
-    fn _new() -> Self {
-        Self {
-            _receiver: None,
-            _stats: StreamStats::default(),
-        }
-    }
-}
 
 // COMMENTED OUT: Implementation depends on EventStream trait
 /*
@@ -241,35 +214,6 @@ struct ReplayDataSource {
     _total_events: usize,
 }
 
-impl ReplayDataSource {
-    /// Create a new replay data source
-    pub fn _new(config: ReplayConfig, filter_assets: Option<Vec<AssetId>>) -> Self {
-        info!(
-            data_directory = %config.data_directory.display(),
-            playback_speed = config.playback_speed,
-            "Creating replay data source"
-        );
-
-        Self {
-            _config: config,
-            _filter_assets: filter_assets,
-            _event_tx: None,
-            _is_running: false,
-            _health: SourceHealth::Disconnected,
-            _current_position: 0,
-            _total_events: 0,
-        }
-    }
-
-    /// Get replay progress (0.0 to 1.0)
-    pub fn _progress(&self) -> f64 {
-        if self._total_events == 0 {
-            0.0
-        } else {
-            self._current_position as f64 / self._total_events as f64
-        }
-    }
-}
 
 // COMMENTED OUT: Implementation depends on DataSource trait
 /*
@@ -343,15 +287,6 @@ pub struct ReplayEventStream {
     _finished: bool,
 }
 
-impl ReplayEventStream {
-    fn _new(config: ReplayConfig) -> Self {
-        Self {
-            _config: config,
-            _stats: StreamStats::default(),
-            _finished: false,
-        }
-    }
-}
 
 // COMMENTED OUT: Implementation depends on EventStream trait
 /*
@@ -388,24 +323,6 @@ struct SimulationDataSource {
     _health: SourceHealth,
 }
 
-impl SimulationDataSource {
-    /// Create a new simulation data source
-    pub fn _new(asset_count: usize, event_frequency: Duration) -> Self {
-        info!(
-            asset_count = asset_count,
-            event_frequency = ?event_frequency,
-            "Creating simulation data source"
-        );
-
-        Self {
-            _asset_count: asset_count,
-            _event_frequency: event_frequency,
-            _event_tx: None,
-            _is_running: false,
-            _health: SourceHealth::Disconnected,
-        }
-    }
-}
 
 // COMMENTED OUT: Implementation depends on DataSource trait
 /*
@@ -470,14 +387,6 @@ pub struct SimulationEventStream {
     _stats: StreamStats,
 }
 
-impl SimulationEventStream {
-    fn _new(event_frequency: Duration) -> Self {
-        Self {
-            _event_frequency: event_frequency,
-            _stats: StreamStats::default(),
-        }
-    }
-}
 
 // COMMENTED OUT: Implementation depends on EventStream trait
 /*

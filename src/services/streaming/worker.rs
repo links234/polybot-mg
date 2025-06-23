@@ -247,13 +247,6 @@ impl StreamerWorker {
         self.stats.read().await.clone()
     }
 
-    /// Force reconnect
-    pub async fn _reconnect(&self) -> Result<(), anyhow::Error> {
-        info!("Force reconnecting worker {}", self.worker_id);
-
-        let tokens = self.assigned_tokens.read().await.clone();
-        self.restart_with_tokens(tokens).await
-    }
 
     /// Restart worker with new tokens
     async fn restart_with_tokens(&self, tokens: Vec<String>) -> Result<(), anyhow::Error> {

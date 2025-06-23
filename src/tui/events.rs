@@ -1,7 +1,7 @@
 use crossterm::event::{self, Event as CrosstermEvent, KeyEvent};
 use std::time::Duration;
 use tokio::sync::mpsc;
-use tracing::{error, debug};
+use tracing::{debug, error};
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -18,10 +18,10 @@ pub struct EventHandler {
 impl EventHandler {
     pub fn new(tick_rate: Duration) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
-        
+
         let _task = tokio::spawn(async move {
             let mut interval = tokio::time::interval(tick_rate);
-            
+
             loop {
                 tokio::select! {
                     _ = interval.tick() => {
@@ -52,13 +52,13 @@ impl EventHandler {
                     }
                 }
             }
-            
+
             debug!("Event handler task ended");
         });
-        
+
         Self { rx, _task }
     }
-    
+
     pub async fn next(&mut self) -> Option<Event> {
         self.rx.recv().await
     }

@@ -13,8 +13,7 @@ use ratatui::{
     Frame, Terminal,
 };
 use std::{
-    fs,
-    io,
+    fs, io,
     path::PathBuf,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -22,8 +21,8 @@ use std::{
 use tokio::sync::mpsc;
 use tracing::error;
 
-use crate::data_paths::DataPaths;
 use crate::cli::commands::index::{IndexArgs, IndexCommand};
+use crate::data_paths::DataPaths;
 
 pub struct IndexTui {
     data_paths: DataPaths,
@@ -56,7 +55,7 @@ impl IndexTui {
                 Vec::new()
             }
         };
-        
+
         let selected_files = vec![false; chunk_files.len()];
         let mut list_state = ListState::default();
         if !chunk_files.is_empty() {
@@ -75,17 +74,25 @@ impl IndexTui {
             indexing_progress: Arc::new(Mutex::new(crate::tui::IndexingProgress::default())),
             progress_receiver: None,
         };
-        
+
         // Set initial status message
         if tui.chunk_files.is_empty() {
             let datasets_dir = tui.data_paths.datasets();
             if !datasets_dir.exists() {
-                tui.set_status_message(format!("⚠️ Datasets directory does not exist: {}", datasets_dir.display()));
+                tui.set_status_message(format!(
+                    "⚠️ Datasets directory does not exist: {}",
+                    datasets_dir.display()
+                ));
             } else {
-                tui.set_status_message("⚠️ No market data files found. Press 'r' to refresh.".to_string());
+                tui.set_status_message(
+                    "⚠️ No market data files found. Press 'r' to refresh.".to_string(),
+                );
             }
         } else {
-            tui.set_status_message(format!("✅ Found {} market data files", tui.chunk_files.len()));
+            tui.set_status_message(format!(
+                "✅ Found {} market data files",
+                tui.chunk_files.len()
+            ));
         }
 
         Ok(tui)
@@ -127,7 +134,7 @@ impl IndexTui {
             } else {
                 Vec::new()
             };
-            
+
             for update in updates_to_process {
                 self.handle_progress_update(update);
             }
@@ -148,7 +155,9 @@ impl IndexTui {
                             match key.code {
                                 KeyCode::Char('q') | KeyCode::Esc => {
                                     // TODO: Implement cancellation
-                                    self.set_status_message("⚠️ Indexing in progress, cannot quit yet".to_string());
+                                    self.set_status_message(
+                                        "⚠️ Indexing in progress, cannot quit yet".to_string(),
+                                    );
                                 }
                                 _ => {}
                             }
@@ -176,15 +185,23 @@ impl IndexTui {
                                 KeyCode::Enter => {
                                     if let Err(e) = self.start_indexing().await {
                                         error!("Indexing failed: {}", e);
-                                        self.set_status_message(format!("❌ Indexing failed: {}", e));
+                                        self.set_status_message(format!(
+                                            "❌ Indexing failed: {}",
+                                            e
+                                        ));
                                     }
                                 }
                                 KeyCode::Char('r') => {
                                     if let Err(e) = self.refresh_file_list() {
                                         error!("Failed to refresh file list: {}", e);
-                                        self.set_status_message(format!("❌ Refresh failed: {}", e));
+                                        self.set_status_message(format!(
+                                            "❌ Refresh failed: {}",
+                                            e
+                                        ));
                                     } else {
-                                        self.set_status_message("🔄 File list refreshed".to_string());
+                                        self.set_status_message(
+                                            "🔄 File list refreshed".to_string(),
+                                        );
                                     }
                                 }
                                 _ => {}
@@ -217,7 +234,11 @@ impl IndexTui {
 
         // Title
         let title = Paragraph::new("🗄️ RocksDB Market Data Indexer")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);
@@ -232,7 +253,10 @@ impl IndexTui {
                 Line::from("  • markets_chunk_*.json (raw market chunks)"),
                 Line::from("  • markets.json (analyzed market data)"),
                 Line::from(""),
-                Line::from(format!("Search path: {}", self.data_paths.datasets().display())),
+                Line::from(format!(
+                    "Search path: {}",
+                    self.data_paths.datasets().display()
+                )),
                 Line::from(""),
                 Line::from("Run one of these commands to generate data:"),
                 Line::from("  • polybot fetch-all-markets"),
@@ -241,7 +265,11 @@ impl IndexTui {
             .style(Style::default().fg(Color::Yellow))
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true })
-            .block(Block::default().borders(Borders::ALL).title("No Data Found"));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("No Data Found"),
+            );
             f.render_widget(empty_msg, chunks[1]);
         } else {
             self.render_file_list(f, chunks[1]);
@@ -301,7 +329,7 @@ impl IndexTui {
 
     fn render_indexing_progress(&mut self, f: &mut Frame) {
         let progress = self.indexing_progress.lock().unwrap();
-        
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -314,7 +342,11 @@ impl IndexTui {
 
         // Title
         let title = Paragraph::new("🗄️ RocksDB Indexing Progress")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);
@@ -337,14 +369,16 @@ impl IndexTui {
         };
 
         let overall_gauge = Gauge::default()
-            .block(Block::default().title("Overall Progress").borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .title("Overall Progress")
+                    .borders(Borders::ALL),
+            )
             .gauge_style(Style::default().fg(Color::Green).bg(Color::Black))
             .percent(overall_percent)
             .label(format!(
                 "File {}/{} - {} markets indexed",
-                progress.current_file,
-                progress.total_files,
-                progress.total_markets_indexed
+                progress.current_file, progress.total_files, progress.total_markets_indexed
             ));
         f.render_widget(overall_gauge, progress_chunks[0]);
 
@@ -358,9 +392,7 @@ impl IndexTui {
         let file_label = if !progress.current_file_name.is_empty() {
             format!(
                 "{} - {}/{} markets",
-                progress.current_file_name,
-                progress.markets_processed,
-                progress.markets_in_file
+                progress.current_file_name, progress.markets_processed, progress.markets_in_file
             )
         } else {
             "Waiting...".to_string()
@@ -376,22 +408,34 @@ impl IndexTui {
         // Current phase
         let (phase_label, phase_color) = match &progress.phase {
             crate::tui::IndexingPhase::Starting => ("Starting...".to_string(), Color::Gray),
-            crate::tui::IndexingPhase::ProcessingFiles => ("Processing market files".to_string(), Color::Yellow),
-            crate::tui::IndexingPhase::IndexingConditions => {
-                (format!("Indexing {} conditions", progress.total_conditions), Color::Cyan)
-            },
-            crate::tui::IndexingPhase::IndexingTokens => {
-                (format!("Indexing {} tokens", progress.total_tokens), Color::Magenta)
-            },
-            crate::tui::IndexingPhase::Finalizing => ("Finalizing database".to_string(), Color::Blue),
-            crate::tui::IndexingPhase::Completed => ("✅ Indexing completed!".to_string(), Color::Green),
+            crate::tui::IndexingPhase::ProcessingFiles => {
+                ("Processing market files".to_string(), Color::Yellow)
+            }
+            crate::tui::IndexingPhase::IndexingConditions => (
+                format!("Indexing {} conditions", progress.total_conditions),
+                Color::Cyan,
+            ),
+            crate::tui::IndexingPhase::IndexingTokens => (
+                format!("Indexing {} tokens", progress.total_tokens),
+                Color::Magenta,
+            ),
+            crate::tui::IndexingPhase::Finalizing => {
+                ("Finalizing database".to_string(), Color::Blue)
+            }
+            crate::tui::IndexingPhase::Completed => {
+                ("✅ Indexing completed!".to_string(), Color::Green)
+            }
             crate::tui::IndexingPhase::Failed(_) => ("❌ Indexing failed".to_string(), Color::Red),
         };
 
         let phase_content = Paragraph::new(phase_label)
             .style(Style::default().fg(phase_color))
             .alignment(Alignment::Center)
-            .block(Block::default().title("Current Phase").borders(Borders::ALL));
+            .block(
+                Block::default()
+                    .title("Current Phase")
+                    .borders(Borders::ALL),
+            );
         f.render_widget(phase_content, progress_chunks[2]);
 
         // Event log
@@ -440,22 +484,25 @@ impl IndexTui {
             .enumerate()
             .map(|(i, file)| {
                 let checkbox = if self.selected_files[i] { "☑" } else { "☐" };
-                
+
                 // Split the name to show dataset type and filename separately
                 let parts: Vec<&str> = file.name.split('/').collect();
                 let (dataset_type, filename) = if parts.len() >= 2 {
-                    (parts[..parts.len()-1].join("/"), parts[parts.len()-1].to_string())
+                    (
+                        parts[..parts.len() - 1].join("/"),
+                        parts[parts.len() - 1].to_string(),
+                    )
                 } else {
                     ("unknown".to_string(), file.name.clone())
                 };
-                
+
                 // Color code by dataset type
                 let type_color = match dataset_type.as_str() {
                     s if s.contains("raw_markets") => Color::Cyan,
                     s if s.contains("bitcoin") => Color::Yellow,
                     _ => Color::Gray,
                 };
-                
+
                 let line = Line::from(vec![
                     Span::raw(format!("{} ", checkbox)),
                     Span::styled(
@@ -464,19 +511,25 @@ impl IndexTui {
                     ),
                     Span::styled(
                         filename,
-                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
                     ),
-                    Span::raw(format!(" ({:.1} MB, ~{} markets)", file.size_mb, file.market_count_estimate)),
+                    Span::raw(format!(
+                        " ({:.1} MB, ~{} markets)",
+                        file.size_mb, file.market_count_estimate
+                    )),
                 ]);
                 ListItem::new(line)
             })
             .collect();
 
         let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title(format!(
-                "Market Data Files ({})",
-                self.chunk_files.len()
-            )))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!("Market Data Files ({})", self.chunk_files.len())),
+            )
             .highlight_style(
                 Style::default()
                     .bg(Color::DarkGray)
@@ -515,14 +568,12 @@ impl IndexTui {
             Line::from("• Enable fast CLI queries with 'polybot markets --mode db'"),
         ];
 
-        let help_popup = Paragraph::new(help_text)
-            .wrap(Wrap { trim: true })
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("Help")
-                    .style(Style::default().fg(Color::Cyan)),
-            );
+        let help_popup = Paragraph::new(help_text).wrap(Wrap { trim: true }).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Help")
+                .style(Style::default().fg(Color::Cyan)),
+        );
 
         f.render_widget(help_popup, popup_area);
     }
@@ -610,9 +661,9 @@ impl IndexTui {
             .join(",");
 
         let args = IndexArgs {
-            db_path: None, // Use default
+            db_path: None,         // Use default
             use_file_store: false, // Don't use file-based storage
-            rocksdb: true, // Use RocksDB storage
+            rocksdb: true,         // Use RocksDB storage
             source_dir: None,
             chunk_files: Some(chunk_files_str),
             clear: false,
@@ -624,13 +675,13 @@ impl IndexTui {
 
         // Create progress channel
         let (progress_sender, progress_receiver) = crate::tui::create_progress_channel();
-        
+
         // Reset progress state
         {
             let mut progress = self.indexing_progress.lock().unwrap();
             *progress = crate::tui::IndexingProgress::default();
         }
-        
+
         // Set up progress receiver
         self.progress_receiver = Some(progress_receiver);
         self.is_indexing = true;
@@ -653,7 +704,7 @@ impl IndexTui {
         let new_files = Self::discover_chunk_files(&self.data_paths)?;
         self.chunk_files = new_files;
         self.selected_files = vec![false; self.chunk_files.len()];
-        
+
         // Reset selection if no files
         if self.chunk_files.is_empty() {
             self.list_state.select(None);
@@ -673,7 +724,12 @@ impl IndexTui {
         let (complete, error_msg) = {
             let mut progress = self.indexing_progress.lock().unwrap();
             match update {
-                crate::tui::ProgressUpdate::FileStart { file_index, total_files, file_name, market_count } => {
+                crate::tui::ProgressUpdate::FileStart {
+                    file_index,
+                    total_files,
+                    file_name,
+                    market_count,
+                } => {
                     progress.current_file = file_index;
                     progress.total_files = total_files;
                     progress.current_file_name = file_name;
@@ -709,16 +765,14 @@ impl IndexTui {
                     progress.total_tokens = count;
                     (false, None)
                 }
-                crate::tui::ProgressUpdate::Complete => {
-                    (true, None)
-                }
+                crate::tui::ProgressUpdate::Complete => (true, None),
                 crate::tui::ProgressUpdate::Error(err) => {
                     progress.phase = crate::tui::IndexingPhase::Failed(err.clone());
                     (false, Some(err))
                 }
             }
         };
-        
+
         if complete {
             self.is_indexing = false;
             self.set_status_message("✅ Indexing completed successfully!".to_string());
@@ -760,13 +814,14 @@ impl IndexTui {
                 Self::find_market_files(&path, files)?;
             } else if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
                 // Check for market data files (both chunk files and regular markets.json)
-                let is_chunk_file = file_name.starts_with("markets_chunk_") && file_name.ends_with(".json");
+                let is_chunk_file =
+                    file_name.starts_with("markets_chunk_") && file_name.ends_with(".json");
                 let is_markets_file = file_name == "markets.json";
-                
+
                 if is_chunk_file || is_markets_file {
                     let metadata = fs::metadata(&path)?;
                     let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
-                    
+
                     // Estimate market count differently for different file types
                     let market_count_estimate = if is_markets_file {
                         // For markets.json files, estimate fewer markets (they're usually filtered)
@@ -796,7 +851,7 @@ impl IndexTui {
     fn extract_dataset_type(path: &PathBuf) -> String {
         // Extract the dataset type from the path
         let path_str = path.to_string_lossy();
-        
+
         if path_str.contains("raw_markets") {
             if let Some(date) = Self::extract_date_from_path(&path_str) {
                 return format!("raw_markets/{}", date);
@@ -818,7 +873,7 @@ impl IndexTui {
             }
             return "bitcoin_bets_stats".to_string();
         }
-        
+
         "unknown".to_string()
     }
 
@@ -826,7 +881,10 @@ impl IndexTui {
         // Look for date pattern YYYY-MM-DD in the path
         let parts: Vec<&str> = path_str.split('/').collect();
         for part in parts {
-            if part.len() == 10 && part.chars().nth(4) == Some('-') && part.chars().nth(7) == Some('-') {
+            if part.len() == 10
+                && part.chars().nth(4) == Some('-')
+                && part.chars().nth(7) == Some('-')
+            {
                 return Some(part.to_string());
             }
         }
@@ -835,7 +893,11 @@ impl IndexTui {
 }
 
 // Helper function to create a centered rectangle
-fn centered_rect(percent_x: u16, percent_y: u16, r: ratatui::layout::Rect) -> ratatui::layout::Rect {
+fn centered_rect(
+    percent_x: u16,
+    percent_y: u16,
+    r: ratatui::layout::Rect,
+) -> ratatui::layout::Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

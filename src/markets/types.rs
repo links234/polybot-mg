@@ -23,16 +23,16 @@ pub struct MarketWithVolume {
     /// Original market data
     #[serde(flatten)]
     pub market: serde_json::Value,
-    
+
     /// Volume data (if available)
     pub volume_24hr: Option<f64>,
     pub volume_total: Option<f64>,
-    
+
     /// Liquidity data (if available)
     pub liquidity: Option<f64>,
     pub bid_liquidity: Option<f64>,
     pub ask_liquidity: Option<f64>,
-    
+
     /// Timestamp when this data was fetched
     pub fetched_at: chrono::DateTime<chrono::Utc>,
-} 
+}

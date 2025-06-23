@@ -28,32 +28,37 @@ impl DataPaths {
             root: root.as_ref().to_path_buf(),
         }
     }
-    
+
     /// Get the root data directory
     pub fn root(&self) -> &PathBuf {
         &self.root
     }
-    
+
     /// Get the datasets directory (default location for all dataset outputs)
     pub fn datasets(&self) -> PathBuf {
         self.root.join(DATASETS_DIR)
     }
-    
+
     /// Get the runs directory (for pipeline and command outputs)
     pub fn runs(&self) -> PathBuf {
         self.datasets().join(RUNS_DIR)
     }
-    
+
     /// Get the auth directory
     pub fn auth(&self) -> PathBuf {
         self.root.join(AUTH_DIR)
     }
-    
+
     /// Get the logs directory
     pub fn logs(&self) -> PathBuf {
         self.root.join(LOGS_DIR)
     }
-    
+
+    /// Get the root data directory
+    pub fn data(&self) -> PathBuf {
+        self.root.clone()
+    }
+
     /// Ensure all directories exist
     pub fn ensure_directories(&self) -> std::io::Result<()> {
         std::fs::create_dir_all(&self.root)?;
@@ -63,4 +68,4 @@ impl DataPaths {
         std::fs::create_dir_all(self.logs())?;
         Ok(())
     }
-} 
+}

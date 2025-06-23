@@ -14,7 +14,7 @@ pub struct InstallArgs {
     /// Overwrite existing installation without prompting
     #[arg(long)]
     pub overwrite: bool,
-    
+
     /// Custom installation directory (defaults to ~/.local/bin)
     #[arg(long)]
     pub bin_dir: Option<String>,
@@ -39,14 +39,20 @@ impl InstallCommand {
 
         // Ensure bin directory exists
         if !install_dir.exists() {
-            println!("📁 Creating installation directory: {}", install_dir.display());
+            println!(
+                "📁 Creating installation directory: {}",
+                install_dir.display()
+            );
             fs::create_dir_all(&install_dir)?;
         }
 
         // Check if already installed
         if target_path.exists() && !self.args.overwrite {
-            println!("⚠️  {} already exists", target_path.display().to_string().yellow());
-            
+            println!(
+                "⚠️  {} already exists",
+                target_path.display().to_string().yellow()
+            );
+
             if !self.prompt_overwrite()? {
                 println!("{}", "❌ Installation cancelled by user".red());
                 return Ok(());
@@ -79,7 +85,12 @@ impl InstallCommand {
         // Check PATH
         self.check_path_setup(&install_dir)?;
 
-        println!("{}", "✅ Installation completed successfully!".bright_green().bold());
+        println!(
+            "{}",
+            "✅ Installation completed successfully!"
+                .bright_green()
+                .bold()
+        );
         println!();
         println!("{}", "🚀 Getting Started:".bright_cyan().bold());
         println!("   1. Restart your terminal or run: source ~/.bashrc");
@@ -87,7 +98,7 @@ impl InstallCommand {
         println!("   3. Initialize authentication: polybot init --pk YOUR_PRIVATE_KEY");
         println!("   4. Browse markets: polybot markets");
         println!();
-        
+
         Ok(())
     }
 
@@ -139,7 +150,7 @@ impl InstallCommand {
 
     fn check_path_setup(&self, install_dir: &Path) -> Result<()> {
         let install_dir_str = install_dir.to_string_lossy();
-        
+
         // Check if directory is in PATH
         if let Ok(path_var) = env::var("PATH") {
             if path_var.split(':').any(|p| p == install_dir_str) {
@@ -152,7 +163,10 @@ impl InstallCommand {
         println!("{}", "⚠️  PATH Setup Required".yellow().bold());
         println!("The installation directory is not in your PATH.");
         println!();
-        println!("{}", "To add it to your PATH, run one of these commands:".cyan());
+        println!(
+            "{}",
+            "To add it to your PATH, run one of these commands:".cyan()
+        );
         println!();
 
         // Detect shell and provide appropriate command
@@ -160,11 +174,17 @@ impl InstallCommand {
         match shell_info.as_str() {
             "bash" => {
                 println!("For Bash:");
-                println!("   echo 'export PATH=\"{}:$PATH\"' >> ~/.bashrc", install_dir_str);
+                println!(
+                    "   echo 'export PATH=\"{}:$PATH\"' >> ~/.bashrc",
+                    install_dir_str
+                );
             }
             "zsh" => {
                 println!("For Zsh:");
-                println!("   echo 'export PATH=\"{}:$PATH\"' >> ~/.zshrc", install_dir_str);
+                println!(
+                    "   echo 'export PATH=\"{}:$PATH\"' >> ~/.zshrc",
+                    install_dir_str
+                );
             }
             "fish" => {
                 println!("For Fish:");

@@ -15,11 +15,13 @@ use super::search_types::*;
 /// 
 /// This is a simplified implementation that will be enhanced once Milli API stabilizes.
 /// For now, it provides fast in-memory search capabilities.
+#[allow(dead_code)]
 pub struct MilliSearchService {
     db_path: String,
     documents: Vec<MarketDocument>,
 }
 
+#[allow(dead_code)]
 impl MilliSearchService {
     /// Create new Milli search service
     pub fn new<P: AsRef<Path>>(search_path: P) -> Result<Self> {
@@ -342,6 +344,7 @@ impl MilliSearchService {
 }
 
 /// Helper function to create search service with standard path
+#[allow(dead_code)]
 pub async fn create_search_service(data_dir: &Path) -> Result<MilliSearchService> {
     let search_path = data_dir.join("search_index");
     MilliSearchService::new(search_path)

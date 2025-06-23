@@ -3,8 +3,8 @@
 use anyhow::Result;
 use clap::Args;
 use owo_colors::OwoColorize;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::str::FromStr;
 use std::time::Duration;
 use tokio::signal;
@@ -12,7 +12,7 @@ use tracing::{info, warn};
 
 use crate::data_paths::DataPaths;
 use crate::services::{Streamer, StreamerConfig};
-use crate::ws::{WsConfig, AuthPayload, PolyEvent};
+use crate::ws::{AuthPayload, PolyEvent, WsConfig};
 
 #[derive(Args, Clone)]
 pub struct DaemonArgs {
@@ -65,7 +65,10 @@ impl DaemonCommand {
             ));
         }
 
-        info!("{}", "🤖 Polymarket Streaming Daemon Starting...".bright_blue());
+        info!(
+            "{}",
+            "🤖 Polymarket Streaming Daemon Starting...".bright_blue()
+        );
         info!(
             "{}",
             format!("📊 Monitoring {} assets", self.args.assets.len()).bright_cyan()
@@ -110,10 +113,17 @@ impl DaemonCommand {
 
         // Set up event handling for sample strategy
         let mut events = streamer.events();
-        let mut summary_timer = tokio::time::interval(Duration::from_secs(self.args.summary_interval));
+        let mut summary_timer =
+            tokio::time::interval(Duration::from_secs(self.args.summary_interval));
 
-        info!("{}", "✅ Daemon started. Press Ctrl+C to stop.".bright_green());
-        info!("Streaming daemon running for assets: {:?}", self.args.assets);
+        info!(
+            "{}",
+            "✅ Daemon started. Press Ctrl+C to stop.".bright_green()
+        );
+        info!(
+            "Streaming daemon running for assets: {:?}",
+            self.args.assets
+        );
 
         // Main event loop with sample strategy
         loop {
@@ -154,11 +164,16 @@ impl DaemonCommand {
     /// Handle individual streaming events for strategy
     async fn handle_strategy_event(&self, event: PolyEvent) {
         match event {
-            PolyEvent::Book { asset_id, bids, asks, .. } => {
+            PolyEvent::Book {
+                asset_id,
+                bids,
+                asks,
+                ..
+            } => {
                 if let (Some(best_bid), Some(best_ask)) = (bids.first(), asks.first()) {
                     let spread = best_ask.price - best_bid.price;
                     let mid_price = (best_bid.price + best_ask.price) / Decimal::from(2);
-                    
+
                     // Log significant spread changes
                     if spread > Decimal::from_str("0.05").unwrap() {
                         info!(
@@ -166,13 +181,21 @@ impl DaemonCommand {
                             asset_id,
                             mid_price,
                             spread,
-                            (spread / mid_price * Decimal::from(100)).to_f64().unwrap_or(0.0)
+                            (spread / mid_price * Decimal::from(100))
+                                .to_f64()
+                                .unwrap_or(0.0)
                         );
                     }
                 }
             }
-            
-            PolyEvent::Trade { asset_id, price, size, side, .. } => {
+
+            PolyEvent::Trade {
+                asset_id,
+                price,
+                size,
+                side,
+                ..
+            } => {
                 // Log large trades
                 if size > Decimal::from(1000) {
                     info!(
@@ -181,14 +204,20 @@ impl DaemonCommand {
                     );
                 }
             }
-            
-            PolyEvent::MyTrade { asset_id, side, price, size, .. } => {
+
+            PolyEvent::MyTrade {
+                asset_id,
+                side,
+                price,
+                size,
+                ..
+            } => {
                 info!(
                     "My trade executed: {} - {:?} {} @ ${}",
                     asset_id, side, size, price
                 );
             }
-            
+
             _ => {} // Ignore other events
         }
     }
@@ -196,23 +225,24 @@ impl DaemonCommand {
     /// Execute sample strategy on periodic intervals
     async fn execute_sample_strategy(&self, streamer: &Streamer) {
         let order_books = streamer.get_all_order_books();
-        
+
         if order_books.is_empty() {
             warn!("No order books available for strategy execution");
             return;
         }
 
         info!("\n{}", "📈 Strategy Analysis:".bright_blue());
-        
+
         for asset_order_book in order_books {
             let asset_id = &asset_order_book.asset_id;
             let book = &asset_order_book.order_book;
             if let (Some(best_bid), Some(best_ask)) = (book.best_bid(), book.best_ask()) {
                 let spread = best_ask.price - best_bid.price;
                 let spread_pct = (spread / best_bid.price * Decimal::from(100))
-                    .to_f64().unwrap_or(0.0);
+                    .to_f64()
+                    .unwrap_or(0.0);
                 let mid_price = (best_bid.price + best_ask.price) / Decimal::from(2);
-                
+
                 // Sample strategy: identify arbitrage opportunities
                 if spread_pct > 2.0 {
                     info!(
@@ -222,7 +252,7 @@ impl DaemonCommand {
                         mid_price
                     );
                 }
-                
+
                 // Sample strategy: identify liquidity imbalances
                 let liquidity_ratio = best_bid.size / best_ask.size;
                 if liquidity_ratio > Decimal::from(2) {
@@ -238,7 +268,7 @@ impl DaemonCommand {
                         (Decimal::from(1) / liquidity_ratio).to_f64().unwrap_or(0.0)
                     );
                 }
-                
+
                 // Basic market summary
                 info!(
                     "  💹 {} - Mid: ${}, Spread: {:.2}%, Depth: {}/${} (bid/ask)",
@@ -249,13 +279,10 @@ impl DaemonCommand {
                     best_ask.size
                 );
             } else {
-                info!(
-                    "  ⚠️  {} - Incomplete order book",
-                    asset_id.bright_yellow()
-                );
+                info!("  ⚠️  {} - Incomplete order book", asset_id.bright_yellow());
             }
         }
-        
+
         info!("");
     }
-} 
+}

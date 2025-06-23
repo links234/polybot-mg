@@ -1,5 +1,5 @@
 //! Orderbook types and structures for execution management
-//! 
+//!
 //! This module contains strongly-typed structures for orderbook representation
 //! and manipulation, ensuring CLAUDE.md compliance with "no tuples in public APIs".
 
@@ -36,14 +36,14 @@ impl PriceLevel {
         let valid = self.price > Decimal::ZERO && self.size >= Decimal::ZERO;
         if !valid {
             warn!(
-                price = %self.price, 
-                size = %self.size, 
+                price = %self.price,
+                size = %self.size,
                 "Invalid price level detected"
             );
         }
         valid
     }
-    
+
     /// Creates a validated price level, returning None if invalid
     pub fn try_new(price: Decimal, size: Decimal) -> Option<Self> {
         let level = Self::new(price, size);
@@ -68,7 +68,10 @@ pub struct MarketDepth {
 impl MarketDepth {
     /// Creates new market depth information
     pub fn new(bid_levels: usize, ask_levels: usize) -> Self {
-        Self { bid_levels, ask_levels }
+        Self {
+            bid_levels,
+            ask_levels,
+        }
     }
 
     /// Gets total number of levels
@@ -93,58 +96,13 @@ pub struct AssetOrderBook {
 impl AssetOrderBook {
     /// Creates new asset order book pair
     pub fn new(asset_id: String, order_book: crate::ws::OrderBook) -> Self {
-        Self { asset_id, order_book }
-    }
-}
-
-/// Spread information with description and mid price
-/// Replaces (String, Option<Decimal>) tuples for spread calculations
-#[derive(Debug, Clone)]
-pub struct SpreadInfo {
-    pub description: String,
-    pub mid_price: Option<Decimal>,
-}
-
-impl SpreadInfo {
-    /// Creates new spread information
-    pub fn new(description: String, mid_price: Option<Decimal>) -> Self {
-        Self { description, mid_price }
-    }
-
-    /// Creates spread info for crossed market
-    pub fn crossed_market(bid: Decimal, ask: Decimal) -> Self {
-        warn!(
-            bid = %bid, 
-            ask = %ask, 
-            spread = %(ask - bid),
-            "Crossed market detected - bid >= ask"
-        );
         Self {
-            description: format!("⚠️ CROSSED MARKET: Bid ${:.4} >= Ask ${:.4}", bid, ask),
-            mid_price: None,
-        }
-    }
-
-    /// Creates spread info for normal market
-    pub fn normal_market(bid: Decimal, ask: Decimal, spread_pct: f64) -> Self {
-        let mid_price = (bid + ask) / Decimal::from(2);
-        let spread = ask - bid;
-        
-        debug!(
-            bid = %bid,
-            ask = %ask,
-            spread = %spread,
-            spread_pct = spread_pct,
-            mid_price = %mid_price,
-            "Normal market spread calculated"
-        );
-        
-        Self {
-            description: format!("Spread: ${:.4} ({:.2}%) | Mid: ${:.4}", spread, spread_pct, mid_price),
-            mid_price: Some(mid_price),
+            asset_id,
+            order_book,
         }
     }
 }
+
 
 // Conversion implementations for backward compatibility during migration
 

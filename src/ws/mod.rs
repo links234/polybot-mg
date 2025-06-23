@@ -1,5 +1,5 @@
 //! WebSocket streaming module for Polymarket real-time data
-//! 
+//!
 //! This module provides:
 //! - WebSocket client for market and user feeds
 //! - Order book state management with hash verification
@@ -11,7 +11,8 @@
 pub mod client;
 pub mod events;
 pub mod state;
+pub mod types;
 
 pub use client::*;
 pub use events::*;
-pub use state::*; 
+pub use state::*;

@@ -1,21 +1,26 @@
+use crate::data_paths::DataPaths;
 use anyhow::Result;
 use clap::Args;
 use rust_decimal::Decimal;
-use tracing::warn;
-use crate::data_paths::DataPaths;
+use tracing::{info, warn};
+use crate::portfolio::command_handlers::enhanced_buy_command;
 
 #[derive(Args, Clone)]
 pub struct BuyArgs {
     /// Token ID
     pub token_id: String,
-    
+
     /// Price in USDC (e.g., 0.48)
     #[arg(long)]
     pub price: Decimal,
-    
+
     /// Size in USDC
     #[arg(long)]
     pub size: Decimal,
+    
+    /// Market ID (optional, will use token_id if not provided)
+    #[arg(long)]
+    pub market_id: Option<String>,
     
     /// Confirm order placement (required unless RUST_ENV=production)
     #[arg(long)]
@@ -37,9 +42,20 @@ impl BuyCommand {
             warn!("⚠️  Order confirmation required. Use --yes to confirm.");
             return Ok(());
         }
+
+        info!("Executing buy command for token: {}", self.args.token_id);
         
-        let mut client = crate::auth::get_authenticated_client(host, &data_paths).await?;
-        crate::execution::orders::place_buy_order(&mut client, &self.args.token_id, self.args.price, self.args.size).await?;
+        // Use the enhanced buy command from portfolio system
+        enhanced_buy_command(
+            &self.args.token_id,
+            self.args.price,
+            self.args.size,
+            self.args.market_id.clone(),
+            self.args.yes,
+            host,
+            data_paths,
+        ).await?;
+        
         Ok(())
     }
-} 
+}

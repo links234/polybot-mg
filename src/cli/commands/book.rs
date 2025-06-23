@@ -1,12 +1,12 @@
+use crate::data_paths::DataPaths;
 use anyhow::Result;
 use clap::Args;
-use crate::data_paths::DataPaths;
 
 #[derive(Args, Clone)]
 pub struct BookArgs {
     /// Token ID
     pub token_id: String,
-    
+
     /// Number of levels to show
     #[arg(long, default_value = "5")]
     pub depth: usize,
@@ -26,4 +26,4 @@ impl BookCommand {
         crate::markets::show_orderbook(client, &self.args.token_id, self.args.depth).await?;
         Ok(())
     }
-} 
+}

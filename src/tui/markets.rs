@@ -20,8 +20,8 @@ use tracing::info;
 
 use crate::data_paths::DataPaths;
 use crate::typed_store::{
+    models::{Condition, ConditionTable, MarketTable, RocksDbMarket, Token, TokenTable},
     TypedStore,
-    models::{MarketTable, TokenTable, ConditionTable, RocksDbMarket, Token, Condition}
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -35,7 +35,7 @@ impl TabMode {
     fn title(&self) -> &'static str {
         match self {
             TabMode::Markets => "Markets",
-            TabMode::Tokens => "Tokens", 
+            TabMode::Tokens => "Tokens",
             TabMode::Conditions => "Conditions",
         }
     }
@@ -51,25 +51,25 @@ pub struct MarketsTui {
     current_tab: TabMode,
     search_query: String,
     search_mode: bool,
-    
+
     // Markets data
     markets: Vec<RocksDbMarket>,
     markets_list_state: ListState,
     markets_page: usize,
     markets_total_pages: usize,
-    
+
     // Tokens data
     tokens: Vec<Token>,
     tokens_list_state: ListState,
     tokens_page: usize,
     tokens_total_pages: usize,
-    
+
     // Conditions data
     conditions: Vec<Condition>,
     conditions_list_state: ListState,
     conditions_page: usize,
     conditions_total_pages: usize,
-    
+
     // UI state
     status_message: Option<String>,
     last_status_time: Option<Instant>,
@@ -84,22 +84,22 @@ impl MarketsTui {
             current_tab: TabMode::Markets,
             search_query: String::new(),
             search_mode: false,
-            
+
             markets: Vec::new(),
             markets_list_state: ListState::default(),
             markets_page: 0,
             markets_total_pages: 0,
-            
+
             tokens: Vec::new(),
             tokens_list_state: ListState::default(),
             tokens_page: 0,
             tokens_total_pages: 0,
-            
+
             conditions: Vec::new(),
             conditions_list_state: ListState::default(),
             conditions_page: 0,
             conditions_total_pages: 0,
-            
+
             status_message: None,
             last_status_time: None,
             items_per_page: 20,
@@ -260,9 +260,13 @@ impl MarketsTui {
 
         let title = Paragraph::new(title_text)
             .style(if self.search_mode {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
             })
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));
@@ -283,7 +287,11 @@ impl MarketsTui {
         let tabs = Tabs::new(titles)
             .block(Block::default().borders(Borders::ALL))
             .style(Style::default().fg(Color::White))
-            .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .highlight_style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )
             .select(selected_tab);
 
         f.render_widget(tabs, area);
@@ -301,8 +309,9 @@ impl MarketsTui {
                 } else {
                     "🟡"
                 };
-                
-                let volume_str = market.volume
+
+                let volume_str = market
+                    .volume
                     .map(|v| format!("${:.0}", v))
                     .unwrap_or_else(|| "N/A".to_string());
 
@@ -310,7 +319,9 @@ impl MarketsTui {
                     Span::raw(format!("{} ", status)),
                     Span::styled(
                         truncate_text(&market.question, 60),
-                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
                     ),
                     Span::raw(format!(" ({})", volume_str)),
                 ]);
@@ -319,10 +330,11 @@ impl MarketsTui {
             .collect();
 
         let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title(format!(
-                "Markets ({} total)",
-                self.get_total_count()
-            )))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!("Markets ({} total)", self.get_total_count())),
+            )
             .highlight_style(
                 Style::default()
                     .bg(Color::DarkGray)
@@ -348,7 +360,9 @@ impl MarketsTui {
                     Span::raw(winner_indicator),
                     Span::styled(
                         &token.outcome,
-                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
                     ),
                     Span::raw(format!(" (${:.3})", token.current_price)),
                     Span::styled(
@@ -361,10 +375,11 @@ impl MarketsTui {
             .collect();
 
         let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title(format!(
-                "Tokens ({} total)",
-                self.get_total_count()
-            )))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!("Tokens ({} total)", self.get_total_count())),
+            )
             .highlight_style(
                 Style::default()
                     .bg(Color::DarkGray)
@@ -382,11 +397,13 @@ impl MarketsTui {
             .map(|condition| {
                 let unknown_category = "Unknown".to_string();
                 let category_str = condition.category.as_ref().unwrap_or(&unknown_category);
-                
+
                 let line = Line::from(vec![
                     Span::styled(
                         truncate_text(&condition.question, 50),
-                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(
                         format!(" [{}]", category_str),
@@ -402,10 +419,11 @@ impl MarketsTui {
             .collect();
 
         let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title(format!(
-                "Conditions ({} total)",
-                self.get_total_count()
-            )))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!("Conditions ({} total)", self.get_total_count())),
+            )
             .highlight_style(
                 Style::default()
                     .bg(Color::DarkGray)
@@ -424,7 +442,10 @@ impl MarketsTui {
         };
 
         let pagination_text = if total_pages > 0 {
-            format!("Page {} of {} ({} items per page)", current_page, total_pages, self.items_per_page)
+            format!(
+                "Page {} of {} ({} items per page)",
+                current_page, total_pages, self.items_per_page
+            )
         } else {
             "No data available".to_string()
         };
@@ -438,9 +459,9 @@ impl MarketsTui {
 
     fn render_instructions(&self, f: &mut Frame, area: ratatui::layout::Rect) {
         let instructions = if self.search_mode {
-            vec![
-                Line::from("Type to search, Enter to confirm, Esc to cancel"),
-            ]
+            vec![Line::from(
+                "Type to search, Enter to confirm, Esc to cancel",
+            )]
         } else {
             vec![
                 Line::from(vec![
@@ -469,7 +490,11 @@ impl MarketsTui {
         let status_text = if let Some(ref msg) = self.status_message {
             msg.clone()
         } else {
-            format!("Ready - {} {} loaded", self.get_items_count(), self.current_tab.title().to_lowercase())
+            format!(
+                "Ready - {} {} loaded",
+                self.get_items_count(),
+                self.current_tab.title().to_lowercase()
+            )
         };
 
         let status = Paragraph::new(status_text)
@@ -482,7 +507,10 @@ impl MarketsTui {
     // Navigation methods
     fn next_tab(&mut self) {
         let tabs = TabMode::all();
-        let current_index = tabs.iter().position(|&tab| tab == self.current_tab).unwrap_or(0);
+        let current_index = tabs
+            .iter()
+            .position(|&tab| tab == self.current_tab)
+            .unwrap_or(0);
         let next_index = (current_index + 1) % tabs.len();
         self.current_tab = tabs[next_index];
         let _ = self.load_current_tab_data();
@@ -490,8 +518,15 @@ impl MarketsTui {
 
     fn previous_tab(&mut self) {
         let tabs = TabMode::all();
-        let current_index = tabs.iter().position(|&tab| tab == self.current_tab).unwrap_or(0);
-        let prev_index = if current_index == 0 { tabs.len() - 1 } else { current_index - 1 };
+        let current_index = tabs
+            .iter()
+            .position(|&tab| tab == self.current_tab)
+            .unwrap_or(0);
+        let prev_index = if current_index == 0 {
+            tabs.len() - 1
+        } else {
+            current_index - 1
+        };
         self.current_tab = tabs[prev_index];
         let _ = self.load_current_tab_data();
     }
@@ -499,25 +534,49 @@ impl MarketsTui {
     fn previous_item(&mut self) {
         match self.current_tab {
             TabMode::Markets => {
-                if self.markets.is_empty() { return; }
+                if self.markets.is_empty() {
+                    return;
+                }
                 let i = match self.markets_list_state.selected() {
-                    Some(i) => if i == 0 { self.markets.len() - 1 } else { i - 1 },
+                    Some(i) => {
+                        if i == 0 {
+                            self.markets.len() - 1
+                        } else {
+                            i - 1
+                        }
+                    }
                     None => 0,
                 };
                 self.markets_list_state.select(Some(i));
             }
             TabMode::Tokens => {
-                if self.tokens.is_empty() { return; }
+                if self.tokens.is_empty() {
+                    return;
+                }
                 let i = match self.tokens_list_state.selected() {
-                    Some(i) => if i == 0 { self.tokens.len() - 1 } else { i - 1 },
+                    Some(i) => {
+                        if i == 0 {
+                            self.tokens.len() - 1
+                        } else {
+                            i - 1
+                        }
+                    }
                     None => 0,
                 };
                 self.tokens_list_state.select(Some(i));
             }
             TabMode::Conditions => {
-                if self.conditions.is_empty() { return; }
+                if self.conditions.is_empty() {
+                    return;
+                }
                 let i = match self.conditions_list_state.selected() {
-                    Some(i) => if i == 0 { self.conditions.len() - 1 } else { i - 1 },
+                    Some(i) => {
+                        if i == 0 {
+                            self.conditions.len() - 1
+                        } else {
+                            i - 1
+                        }
+                    }
                     None => 0,
                 };
                 self.conditions_list_state.select(Some(i));
@@ -528,25 +587,49 @@ impl MarketsTui {
     fn next_item(&mut self) {
         match self.current_tab {
             TabMode::Markets => {
-                if self.markets.is_empty() { return; }
+                if self.markets.is_empty() {
+                    return;
+                }
                 let i = match self.markets_list_state.selected() {
-                    Some(i) => if i >= self.markets.len() - 1 { 0 } else { i + 1 },
+                    Some(i) => {
+                        if i >= self.markets.len() - 1 {
+                            0
+                        } else {
+                            i + 1
+                        }
+                    }
                     None => 0,
                 };
                 self.markets_list_state.select(Some(i));
             }
             TabMode::Tokens => {
-                if self.tokens.is_empty() { return; }
+                if self.tokens.is_empty() {
+                    return;
+                }
                 let i = match self.tokens_list_state.selected() {
-                    Some(i) => if i >= self.tokens.len() - 1 { 0 } else { i + 1 },
+                    Some(i) => {
+                        if i >= self.tokens.len() - 1 {
+                            0
+                        } else {
+                            i + 1
+                        }
+                    }
                     None => 0,
                 };
                 self.tokens_list_state.select(Some(i));
             }
             TabMode::Conditions => {
-                if self.conditions.is_empty() { return; }
+                if self.conditions.is_empty() {
+                    return;
+                }
                 let i = match self.conditions_list_state.selected() {
-                    Some(i) => if i >= self.conditions.len() - 1 { 0 } else { i + 1 },
+                    Some(i) => {
+                        if i >= self.conditions.len() - 1 {
+                            0
+                        } else {
+                            i + 1
+                        }
+                    }
                     None => 0,
                 };
                 self.conditions_list_state.select(Some(i));
@@ -642,7 +725,9 @@ impl MarketsTui {
     fn initialize_database(&mut self) -> Result<()> {
         let db_path = self.data_paths.datasets().join("markets.db");
         if !db_path.exists() {
-            self.set_status_message("❌ Database not found. Run 'polybot index' first.".to_string());
+            self.set_status_message(
+                "❌ Database not found. Run 'polybot index' first.".to_string(),
+            );
             return Ok(());
         }
 
@@ -669,17 +754,21 @@ impl MarketsTui {
                 all.into_iter()
                     .filter(|(_, market)| {
                         let query_lower = self.search_query.to_lowercase();
-                        market.question.to_lowercase().contains(&query_lower) ||
-                        market.category.as_ref().map_or(false, |c| c.to_lowercase().contains(&query_lower))
+                        market.question.to_lowercase().contains(&query_lower)
+                            || market
+                                .category
+                                .as_ref()
+                                .map_or(false, |c| c.to_lowercase().contains(&query_lower))
                     })
                     .collect()
             };
 
-            self.markets_total_pages = (all_markets.len() + self.items_per_page - 1) / self.items_per_page;
-            
+            self.markets_total_pages =
+                (all_markets.len() + self.items_per_page - 1) / self.items_per_page;
+
             let start_idx = self.markets_page * self.items_per_page;
             let end_idx = (start_idx + self.items_per_page).min(all_markets.len());
-            
+
             self.markets = all_markets
                 .into_iter()
                 .skip(start_idx)
@@ -703,17 +792,18 @@ impl MarketsTui {
                 all.into_iter()
                     .filter(|(_, token)| {
                         let query_lower = self.search_query.to_lowercase();
-                        token.outcome.to_lowercase().contains(&query_lower) ||
-                        token.id.to_lowercase().contains(&query_lower)
+                        token.outcome.to_lowercase().contains(&query_lower)
+                            || token.id.to_lowercase().contains(&query_lower)
                     })
                     .collect()
             };
 
-            self.tokens_total_pages = (all_tokens.len() + self.items_per_page - 1) / self.items_per_page;
-            
+            self.tokens_total_pages =
+                (all_tokens.len() + self.items_per_page - 1) / self.items_per_page;
+
             let start_idx = self.tokens_page * self.items_per_page;
             let end_idx = (start_idx + self.items_per_page).min(all_tokens.len());
-            
+
             self.tokens = all_tokens
                 .into_iter()
                 .skip(start_idx)
@@ -737,17 +827,21 @@ impl MarketsTui {
                 all.into_iter()
                     .filter(|(_, condition)| {
                         let query_lower = self.search_query.to_lowercase();
-                        condition.question.to_lowercase().contains(&query_lower) ||
-                        condition.category.as_ref().map_or(false, |c| c.to_lowercase().contains(&query_lower))
+                        condition.question.to_lowercase().contains(&query_lower)
+                            || condition
+                                .category
+                                .as_ref()
+                                .map_or(false, |c| c.to_lowercase().contains(&query_lower))
                     })
                     .collect()
             };
 
-            self.conditions_total_pages = (all_conditions.len() + self.items_per_page - 1) / self.items_per_page;
-            
+            self.conditions_total_pages =
+                (all_conditions.len() + self.items_per_page - 1) / self.items_per_page;
+
             let start_idx = self.conditions_page * self.items_per_page;
             let end_idx = (start_idx + self.items_per_page).min(all_conditions.len());
-            
+
             self.conditions = all_conditions
                 .into_iter()
                 .skip(start_idx)
@@ -767,12 +861,17 @@ impl MarketsTui {
         self.markets_page = 0;
         self.tokens_page = 0;
         self.conditions_page = 0;
-        
+
         self.load_current_tab_data()?;
-        
+
         let count = self.get_items_count();
-        self.set_status_message(format!("🔍 Found {} {} matching '{}'", count, self.current_tab.title().to_lowercase(), self.search_query));
-        
+        self.set_status_message(format!(
+            "🔍 Found {} {} matching '{}'",
+            count,
+            self.current_tab.title().to_lowercase(),
+            self.search_query
+        ));
+
         Ok(())
     }
 

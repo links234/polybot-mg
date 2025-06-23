@@ -1,8 +1,8 @@
-use serde::{Serialize, Deserialize};
-use crate::typed_store::codec::{RocksDbValue, CodecError};
-use crate::typed_store::table::{Table, TypedCf};
 use crate::define_typed_cf;
 use crate::markets::fetcher::{Market as FetchedMarket, MarketToken as FetchedMarketToken};
+use crate::typed_store::codec::{CodecError, RocksDbValue};
+use crate::typed_store::table::{Table, TypedCf};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// RocksDB-optimized market structure
@@ -84,8 +84,8 @@ pub struct Token {
 pub struct MarketIndex {
     pub market_id: String,
     pub condition_id: String,
-    pub question_lower: String, // Lowercase for search
-    pub category_lower: Option<String>, // Lowercase for search
+    pub question_lower: String,          // Lowercase for search
+    pub category_lower: Option<String>,  // Lowercase for search
     pub tags_lower: Option<Vec<String>>, // Lowercase for search
     pub active: bool,
     pub closed: bool,
@@ -105,7 +105,11 @@ impl From<FetchedMarket> for RocksDbMarket {
             description: market.description,
             category: market.category,
             tags: market.tags,
-            tokens: market.tokens.into_iter().map(RocksDbMarketToken::from).collect(),
+            tokens: market
+                .tokens
+                .into_iter()
+                .map(RocksDbMarketToken::from)
+                .collect(),
             active: market.active,
             closed: market.closed,
             archived: market.archived,
@@ -148,7 +152,7 @@ impl RocksDbMarket {
     /// Extract condition data from market
     pub fn extract_condition(&self) -> Option<Condition> {
         let condition_id = self.condition_id.as_ref()?.clone();
-        
+
         Some(Condition {
             id: condition_id,
             question: self.question.clone(),
@@ -164,19 +168,22 @@ impl RocksDbMarket {
 
     /// Extract tokens for separate indexing
     pub fn extract_tokens(&self) -> Vec<Token> {
-        self.tokens.iter().map(|token| Token {
-            id: token.token_id.clone(),
-            outcome: token.outcome.clone(),
-            condition_id: self.condition_id.clone(),
-            market_id: self.id.clone(),
-            current_price: token.price,
-            volume: token.volume,
-            volume_24hr: token.volume_24hr,
-            supply: token.supply,
-            market_cap: token.market_cap,
-            winner: token.winner,
-            last_updated: self.updated_at.clone(),
-        }).collect()
+        self.tokens
+            .iter()
+            .map(|token| Token {
+                id: token.token_id.clone(),
+                outcome: token.outcome.clone(),
+                condition_id: self.condition_id.clone(),
+                market_id: self.id.clone(),
+                current_price: token.price,
+                volume: token.volume,
+                volume_24hr: token.volume_24hr,
+                supply: token.supply,
+                market_cap: token.market_cap,
+                winner: token.winner,
+                last_updated: self.updated_at.clone(),
+            })
+            .collect()
     }
 
     /// Create search index entry
@@ -189,9 +196,10 @@ impl RocksDbMarket {
             condition_id,
             question_lower: self.question.to_lowercase(),
             category_lower: self.category.as_ref().map(|c| c.to_lowercase()),
-            tags_lower: self.tags.as_ref().map(|tags| {
-                tags.iter().map(|t| t.to_lowercase()).collect()
-            }),
+            tags_lower: self
+                .tags
+                .as_ref()
+                .map(|tags| tags.iter().map(|t| t.to_lowercase()).collect()),
             active: self.active,
             closed: self.closed,
             volume: self.volume,
@@ -207,7 +215,7 @@ impl RocksDbValue for RocksDbMarket {
     fn encode_value(&self) -> Result<Vec<u8>, CodecError> {
         serde_json::to_vec(self).map_err(|e| CodecError::SerializationError(e.to_string()))
     }
-    
+
     fn decode_value(data: &[u8]) -> Result<Self, CodecError> {
         serde_json::from_slice(data).map_err(|e| CodecError::DeserializationError(e.to_string()))
     }
@@ -217,7 +225,7 @@ impl RocksDbValue for Condition {
     fn encode_value(&self) -> Result<Vec<u8>, CodecError> {
         serde_json::to_vec(self).map_err(|e| CodecError::SerializationError(e.to_string()))
     }
-    
+
     fn decode_value(data: &[u8]) -> Result<Self, CodecError> {
         serde_json::from_slice(data).map_err(|e| CodecError::DeserializationError(e.to_string()))
     }
@@ -227,7 +235,7 @@ impl RocksDbValue for Token {
     fn encode_value(&self) -> Result<Vec<u8>, CodecError> {
         serde_json::to_vec(self).map_err(|e| CodecError::SerializationError(e.to_string()))
     }
-    
+
     fn decode_value(data: &[u8]) -> Result<Self, CodecError> {
         serde_json::from_slice(data).map_err(|e| CodecError::DeserializationError(e.to_string()))
     }
@@ -237,7 +245,7 @@ impl RocksDbValue for MarketIndex {
     fn encode_value(&self) -> Result<Vec<u8>, CodecError> {
         serde_json::to_vec(self).map_err(|e| CodecError::SerializationError(e.to_string()))
     }
-    
+
     fn decode_value(data: &[u8]) -> Result<Self, CodecError> {
         serde_json::from_slice(data).map_err(|e| CodecError::DeserializationError(e.to_string()))
     }
@@ -254,7 +262,7 @@ impl Table for MarketTable {
 
 pub struct MarketByConditionTable;
 impl Table for MarketByConditionTable {
-    type Key = String; // condition_id  
+    type Key = String; // condition_id
     type Value = RocksDbMarket;
     const PREFIX: u8 = 0x02;
 }
@@ -292,7 +300,7 @@ impl RocksDbValue for Vec<Token> {
     fn encode_value(&self) -> Result<Vec<u8>, CodecError> {
         serde_json::to_vec(self).map_err(|e| CodecError::SerializationError(e.to_string()))
     }
-    
+
     fn decode_value(data: &[u8]) -> Result<Self, CodecError> {
         serde_json::from_slice(data).map_err(|e| CodecError::DeserializationError(e.to_string()))
     }
@@ -303,7 +311,7 @@ impl RocksDbValue for Vec<String> {
     fn encode_value(&self) -> Result<Vec<u8>, CodecError> {
         serde_json::to_vec(self).map_err(|e| CodecError::SerializationError(e.to_string()))
     }
-    
+
     fn decode_value(data: &[u8]) -> Result<Self, CodecError> {
         serde_json::from_slice(data).map_err(|e| CodecError::DeserializationError(e.to_string()))
     }
@@ -313,15 +321,33 @@ impl RocksDbValue for Vec<String> {
 // These provide column family definitions for the new TypedDbContext
 
 define_typed_cf!(MarketCf, String, RocksDbMarket, "markets", 0x01);
-define_typed_cf!(MarketByConditionCf, String, RocksDbMarket, "markets_by_condition", 0x02);
+define_typed_cf!(
+    MarketByConditionCf,
+    String,
+    RocksDbMarket,
+    "markets_by_condition",
+    0x02
+);
 define_typed_cf!(ConditionCf, String, Condition, "conditions", 0x03);
 define_typed_cf!(TokenCf, String, Token, "tokens", 0x04);
-define_typed_cf!(TokensByConditionCf, String, Vec<Token>, "tokens_by_condition", 0x05);
+define_typed_cf!(
+    TokensByConditionCf,
+    String,
+    Vec<Token>,
+    "tokens_by_condition",
+    0x05
+);
 define_typed_cf!(MarketIndexCf, String, MarketIndex, "market_index", 0x06);
 
 // Separate indices for fast lookups
 define_typed_cf!(TokenIndexCf, String, String, "token_index", 0x07); // token_id -> condition_id
-define_typed_cf!(ConditionIndexCf, String, Vec<String>, "condition_index", 0x08); // condition_id -> [token_ids]
+define_typed_cf!(
+    ConditionIndexCf,
+    String,
+    Vec<String>,
+    "condition_index",
+    0x08
+); // condition_id -> [token_ids]
 
 /// All column family names for database initialization
 pub const ALL_COLUMN_FAMILIES: &[&str] = &[

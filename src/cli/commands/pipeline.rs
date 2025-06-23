@@ -41,8 +41,8 @@ impl PipelineCommand {
     }
 
     pub async fn execute(&self, _host: &str, _data_paths: DataPaths) -> Result<()> {
-        let config = crate::pipeline::PipelineConfig::new()
-            .with_pipelines_dir(&self.args.pipelines_dir);
+        let config =
+            crate::pipeline::PipelineConfig::new().with_pipelines_dir(&self.args.pipelines_dir);
 
         // List available pipelines
         if self.args.list {
@@ -70,13 +70,16 @@ impl PipelineCommand {
             if let Some((key, value)) = param.split_once('=') {
                 extra_params.insert(key.to_string(), value.to_string());
             } else {
-                return Err(anyhow::anyhow!("Invalid parameter format: '{}'. Use key=value format.", param));
+                return Err(anyhow::anyhow!(
+                    "Invalid parameter format: '{}'. Use key=value format.",
+                    param
+                ));
             }
         }
 
         // Load and execute pipeline
         let pipeline_path = config.pipeline_path(pipeline_name);
-        
+
         if !std::path::Path::new(&pipeline_path).exists() {
             return Err(anyhow::anyhow!(
                 "Pipeline '{}' not found at: {}\nRun 'polybot pipeline --list' to see available pipelines.",
@@ -91,14 +94,18 @@ impl PipelineCommand {
         context.dry_run = self.args.dry_run;
 
         // Use default verbose setting (can be enhanced later)
-        let runner = crate::pipeline::PipelineRunner::new_auto()
-            .with_verbose(false);
+        let runner = crate::pipeline::PipelineRunner::new_auto().with_verbose(false);
 
-        println!("{}", format!("🔧 Loaded pipeline: {} ({})", 
-            pipeline.name, pipeline_path).bright_blue());
+        println!(
+            "{}",
+            format!("🔧 Loaded pipeline: {} ({})", pipeline.name, pipeline_path).bright_blue()
+        );
 
         if self.args.dry_run {
-            println!("{}", "🔍 Running in dry-run mode (no commands will be executed)".bright_yellow());
+            println!(
+                "{}",
+                "🔍 Running in dry-run mode (no commands will be executed)".bright_yellow()
+            );
         }
 
         let stats = runner.execute_pipeline(&pipeline, context).await?;
@@ -112,10 +119,13 @@ impl PipelineCommand {
     async fn launch_interactive_tui(&self, config: crate::pipeline::PipelineConfig) -> Result<()> {
         // Create and run the TUI
         let tui = crate::pipeline::PipelineTui::new(config.clone())?;
-        
+
         match tui.run().await? {
             Some(selected_pipeline) => {
-                println!("{}", format!("🚀 Selected pipeline: {}", selected_pipeline).bright_green());
+                println!(
+                    "{}",
+                    format!("🚀 Selected pipeline: {}", selected_pipeline).bright_green()
+                );
                 println!();
 
                 // Parse additional parameters
@@ -124,7 +134,10 @@ impl PipelineCommand {
                     if let Some((key, value)) = param.split_once('=') {
                         extra_params.insert(key.to_string(), value.to_string());
                     } else {
-                        return Err(anyhow::anyhow!("Invalid parameter format: '{}'. Use key=value format.", param));
+                        return Err(anyhow::anyhow!(
+                            "Invalid parameter format: '{}'. Use key=value format.",
+                            param
+                        ));
                     }
                 }
 
@@ -135,11 +148,13 @@ impl PipelineCommand {
                 let mut context = pipeline.create_context(extra_params);
                 context.dry_run = self.args.dry_run;
 
-                let runner = crate::pipeline::PipelineRunner::new_auto()
-                    .with_verbose(false);
+                let runner = crate::pipeline::PipelineRunner::new_auto().with_verbose(false);
 
                 if self.args.dry_run {
-                    println!("{}", "🔍 Running in dry-run mode (no commands will be executed)".bright_yellow());
+                    println!(
+                        "{}",
+                        "🔍 Running in dry-run mode (no commands will be executed)".bright_yellow()
+                    );
                 }
 
                 let stats = runner.execute_pipeline(&pipeline, context).await?;
@@ -160,30 +175,44 @@ impl PipelineCommand {
         let pipelines = PipelineRunner::list_pipelines(&config.pipelines_dir)?;
 
         if pipelines.is_empty() {
-            println!("{}", format!("No pipelines found in directory: {}", config.pipelines_dir).bright_yellow());
-            println!("{}", "Create pipeline YAML files in the pipelines/ directory to get started.".bright_cyan());
+            println!(
+                "{}",
+                format!("No pipelines found in directory: {}", config.pipelines_dir)
+                    .bright_yellow()
+            );
+            println!(
+                "{}",
+                "Create pipeline YAML files in the pipelines/ directory to get started."
+                    .bright_cyan()
+            );
             return Ok(());
         }
 
         for pipeline_name in pipelines {
             let pipeline_path = config.pipeline_path(&pipeline_name);
-            
+
             // Try to load pipeline to get description
             match Pipeline::from_file(&pipeline_path) {
                 Ok(pipeline) => {
                     println!("{}", format!("📄 {}", pipeline_name).bright_green());
                     println!("   Name: {}", pipeline.name.bright_white());
-                    
+
                     if !pipeline.description.is_empty() {
                         println!("   Description: {}", pipeline.description.bright_cyan());
                     }
-                    
-                    println!("   Steps: {}", pipeline.steps.len().to_string().bright_yellow());
+
+                    println!(
+                        "   Steps: {}",
+                        pipeline.steps.len().to_string().bright_yellow()
+                    );
                     println!("   Path: {}", pipeline_path.bright_black());
                     println!();
                 }
                 Err(e) => {
-                    println!("{}", format!("❌ {} (invalid YAML: {})", pipeline_name, e).bright_red());
+                    println!(
+                        "{}",
+                        format!("❌ {} (invalid YAML: {})", pipeline_name, e).bright_red()
+                    );
                     println!();
                 }
             }
@@ -197,4 +226,4 @@ impl PipelineCommand {
 
         Ok(())
     }
-} 
+}

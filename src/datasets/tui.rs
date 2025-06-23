@@ -11,9 +11,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{
-        Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap,
-    },
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::io;
@@ -202,7 +200,7 @@ impl DatasetTui {
             Ok(()) => {
                 let count = self.manager.get_datasets().len();
                 self.set_status_message(&format!("Refreshed: {} datasets found", count), false);
-                
+
                 // Reset selection if needed
                 if self.list_state.selected().is_some() {
                     let datasets = self.manager.get_datasets();
@@ -221,7 +219,11 @@ impl DatasetTui {
 
     /// Toggle a dataset for deletion
     fn toggle_mark_for_deletion(&mut self, dataset_name: String) {
-        if let Some(pos) = self.marked_for_deletion.iter().position(|x| x == &dataset_name) {
+        if let Some(pos) = self
+            .marked_for_deletion
+            .iter()
+            .position(|x| x == &dataset_name)
+        {
             self.marked_for_deletion.remove(pos);
             self.set_status_message(&format!("Unmarked {} for deletion", dataset_name), false);
         } else {
@@ -239,11 +241,11 @@ impl DatasetTui {
         match self.manager.delete_datasets(&self.marked_for_deletion) {
             Ok(deleted) => {
                 self.set_status_message(
-                    &format!("Successfully deleted {} datasets", deleted.len()), 
-                    false
+                    &format!("Successfully deleted {} datasets", deleted.len()),
+                    false,
                 );
                 self.marked_for_deletion.clear();
-                
+
                 // Reset selection if needed
                 let datasets = self.manager.get_datasets();
                 if datasets.is_empty() {
@@ -292,7 +294,10 @@ impl DatasetTui {
     }
 
     /// Main application loop
-    async fn run_app(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
+    async fn run_app(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    ) -> Result<()> {
         loop {
             terminal.draw(|f| self.ui(f))?;
 
@@ -355,8 +360,11 @@ impl DatasetTui {
         let title = if datasets.is_empty() {
             "📊 No Datasets Found"
         } else {
-            &format!("📊 Datasets ({} total, {} marked)", 
-                datasets.len(), self.marked_for_deletion.len())
+            &format!(
+                "📊 Datasets ({} total, {} marked)",
+                datasets.len(),
+                self.marked_for_deletion.len()
+            )
         };
 
         let block = Block::default()
@@ -385,7 +393,7 @@ impl DatasetTui {
             .map(|dataset| {
                 let is_marked = self.marked_for_deletion.contains(&dataset.name);
                 let mark_icon = if is_marked { "🗑️" } else { " " };
-                
+
                 let style = if is_marked {
                     Style::default().fg(Color::Red)
                 } else {
@@ -408,7 +416,8 @@ impl DatasetTui {
                     Line::from(vec![
                         Span::styled("  ", Style::default()),
                         Span::styled(
-                            format!("{} • {} files • {}", 
+                            format!(
+                                "{} • {} files • {}",
                                 dataset.dataset_type.display_name(),
                                 dataset.file_count,
                                 dataset.age()
@@ -467,16 +476,23 @@ impl DatasetTui {
                 Line::from(vec![
                     Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
                     Span::styled(dataset.status_icon(), Style::default()),
-                    Span::from(if matches!(dataset.health_status, super::DatasetHealthStatus::Healthy) { " Complete" } else { " Incomplete" }),
+                    Span::from(
+                        if matches!(dataset.health_status, super::DatasetHealthStatus::Healthy) {
+                            " Complete"
+                        } else {
+                            " Incomplete"
+                        },
+                    ),
                 ]),
             ];
 
             // Show command information
             if !dataset.command_info.detected_commands.is_empty() {
                 content.push(Line::from(""));
-                content.push(Line::from(vec![
-                    Span::styled("Commands: ", Style::default().add_modifier(Modifier::BOLD)),
-                ]));
+                content.push(Line::from(vec![Span::styled(
+                    "Commands: ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                )]));
                 for (i, command) in dataset.command_info.detected_commands.iter().enumerate() {
                     let prefix = if i == 0 { "  • " } else { "  • " };
                     content.push(Line::from(vec![
@@ -488,16 +504,23 @@ impl DatasetTui {
                     Span::styled("  Confidence: ", Style::default().fg(Color::Gray)),
                     Span::styled(
                         format!("{:.1}%", dataset.command_info.confidence * 100.0),
-                        Style::default().fg(if dataset.command_info.confidence > 0.7 { Color::Green } else { Color::Yellow }),
+                        Style::default().fg(if dataset.command_info.confidence > 0.7 {
+                            Color::Green
+                        } else {
+                            Color::Yellow
+                        }),
                     ),
                 ]));
             }
 
             if !dataset.warnings.is_empty() {
                 content.push(Line::from(""));
-                content.push(Line::from(vec![
-                    Span::styled("Warnings:", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow)),
-                ]));
+                content.push(Line::from(vec![Span::styled(
+                    "Warnings:",
+                    Style::default()
+                        .add_modifier(Modifier::BOLD)
+                        .fg(Color::Yellow),
+                )]));
                 for warning in &dataset.warnings {
                     content.push(Line::from(vec![
                         Span::styled("  • ", Style::default().fg(Color::Yellow)),
@@ -507,12 +530,14 @@ impl DatasetTui {
             }
 
             content.push(Line::from(""));
-            content.push(Line::from(vec![
-                Span::styled("Path: ", Style::default().add_modifier(Modifier::BOLD)),
-            ]));
-            content.push(Line::from(vec![
-                Span::styled(dataset.path.to_string_lossy(), Style::default().fg(Color::Gray)),
-            ]));
+            content.push(Line::from(vec![Span::styled(
+                "Path: ",
+                Style::default().add_modifier(Modifier::BOLD),
+            )]));
+            content.push(Line::from(vec![Span::styled(
+                dataset.path.to_string_lossy(),
+                Style::default().fg(Color::Gray),
+            )]));
 
             let details = Paragraph::new(content)
                 .block(block)
@@ -553,32 +578,62 @@ impl DatasetTui {
     }
 
     /// Draw summary content
-    fn draw_summary_content(&self, f: &mut Frame, area: ratatui::layout::Rect, summary: &DatasetSummary) {
+    fn draw_summary_content(
+        &self,
+        f: &mut Frame,
+        area: ratatui::layout::Rect,
+        summary: &DatasetSummary,
+    ) {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Green));
 
         let mut content = vec![
             Line::from(vec![
-                Span::styled("Total Datasets: ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::styled(summary.total_datasets.to_string(), Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    "Total Datasets: ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    summary.total_datasets.to_string(),
+                    Style::default().fg(Color::Cyan),
+                ),
             ]),
             Line::from(vec![
-                Span::styled("Total Size: ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::styled(summary.formatted_total_size(), Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    "Total Size: ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    summary.formatted_total_size(),
+                    Style::default().fg(Color::Cyan),
+                ),
             ]),
             Line::from(vec![
-                Span::styled("Total Files: ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::styled(summary.total_files.to_string(), Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    "Total Files: ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    summary.total_files.to_string(),
+                    Style::default().fg(Color::Cyan),
+                ),
             ]),
             Line::from(vec![
-                Span::styled("Created Today: ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::styled(summary.datasets_today.to_string(), Style::default().fg(Color::Green)),
+                Span::styled(
+                    "Created Today: ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    summary.datasets_today.to_string(),
+                    Style::default().fg(Color::Green),
+                ),
             ]),
             Line::from(""),
-            Line::from(vec![
-                Span::styled("By Type:", Style::default().add_modifier(Modifier::BOLD)),
-            ]),
+            Line::from(vec![Span::styled(
+                "By Type:",
+                Style::default().add_modifier(Modifier::BOLD),
+            )]),
         ];
 
         for (dataset_type, count) in &summary.type_counts {
@@ -654,9 +709,17 @@ impl DatasetTui {
         content.push(Line::from(""));
         content.push(Line::from(vec![
             Span::styled("Press ", Style::default()),
-            Span::styled("Y", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "Y",
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled(" to confirm, ", Style::default()),
-            Span::styled("N", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "N",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ),
             Span::styled(" to cancel", Style::default()),
         ]));
 
@@ -704,7 +767,12 @@ impl DatasetTui {
     }
 
     /// Draw status message
-    fn draw_status_message(&self, f: &mut Frame, area: ratatui::layout::Rect, status: &StatusMessage) {
+    fn draw_status_message(
+        &self,
+        f: &mut Frame,
+        area: ratatui::layout::Rect,
+        status: &StatusMessage,
+    ) {
         let status_area = ratatui::layout::Rect {
             x: area.x,
             y: area.height - 6,
@@ -721,15 +789,11 @@ impl DatasetTui {
         let icon = if status.is_error { "❌" } else { "✅" };
 
         let status_msg = Paragraph::new(format!("{} {}", icon, status.text))
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(style),
-            )
+            .block(Block::default().borders(Borders::ALL).border_style(style))
             .style(style)
             .alignment(Alignment::Center);
 
         f.render_widget(Clear, status_area);
         f.render_widget(status_msg, status_area);
     }
-} 
+}

@@ -1,8 +1,7 @@
 //! Core type definitions for the Polybot project
-//! 
+//!
 //! This module contains strongly-typed structures that replace tuple usage
 //! throughout the codebase, ensuring CLAUDE.md compliance with "no tuples in public APIs".
-
 
 // Note: Orderbook-related types (PriceLevel, MarketDepth, AssetOrderBook, SpreadInfo)
 // have been moved to src/execution/orderbook.rs for better organization
@@ -14,8 +13,6 @@ pub struct CategoryCount {
     pub category: String,
     pub count: usize,
 }
-
-
 
 #[cfg(test)]
 mod tests {

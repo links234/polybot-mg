@@ -6,5 +6,4 @@
 pub mod milli_service;
 pub mod search_types;
 
-pub use milli_service::MilliSearchService;
-pub use search_types::*;
+// Note: Types are available via search::milli_service::* and search::search_types::* when needed

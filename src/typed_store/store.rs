@@ -1,5 +1,8 @@
-use rocksdb::{DB, Options, IteratorMode, WriteBatch};
-use crate::typed_store::{table::Table, codec::{CodecError, RocksDbKey, RocksDbValue}};
+use crate::typed_store::{
+    codec::{CodecError, RocksDbKey, RocksDbValue},
+    table::Table,
+};
+use rocksdb::{IteratorMode, Options, WriteBatch, DB};
 use std::path::Path;
 use thiserror::Error;
 
@@ -12,7 +15,7 @@ pub enum StoreError {
 }
 
 /// Wraps a RocksDB instance and exposes typed put/get/scan operations.
-/// 
+///
 /// Each table is distinguished by a prefix byte, allowing multiple logical
 /// tables to coexist in a single RocksDB instance with type safety.
 pub struct TypedStore {
@@ -28,7 +31,7 @@ impl TypedStore {
         opts.set_use_fsync(false);
         opts.set_bytes_per_sync(8388608);
         opts.optimize_for_point_lookup(1024);
-        
+
         let db = DB::open(&opts, path)?;
         Ok(Self { db })
     }
@@ -47,7 +50,7 @@ impl TypedStore {
     pub fn get<T: Table>(&self, key: &T::Key) -> Result<Option<T::Value>, StoreError> {
         let mut k = vec![T::PREFIX];
         k.extend(key.encode_key());
-        
+
         match self.db.get(k)? {
             Some(bytes) => Ok(Some(T::Value::decode_value(&bytes)?)),
             None => Ok(None),
@@ -74,49 +77,57 @@ impl TypedStore {
     /// Returns an iterator over (Key, Value) pairs.
     pub fn scan<T: Table>(&self) -> Result<Vec<(T::Key, T::Value)>, StoreError> {
         let prefix = [T::PREFIX];
-        let iter = self.db.iterator(IteratorMode::From(&prefix, rocksdb::Direction::Forward));
-        
+        let iter = self
+            .db
+            .iterator(IteratorMode::From(&prefix, rocksdb::Direction::Forward));
+
         let mut results = Vec::new();
         for item in iter {
             let (k, v) = item?;
-            
+
             // Stop when we move past our prefix
             if !k.starts_with(&prefix) {
                 break;
             }
-            
+
             // Skip the prefix byte when decoding the key
             let key = T::Key::decode_key(&k[1..])?;
             let value = T::Value::decode_value(&v)?;
             results.push((key, value));
         }
-        
+
         Ok(results)
     }
 
     /// Scan with a key prefix filter (useful for composite keys).
     #[allow(dead_code)]
-    pub fn scan_prefix<T: Table>(&self, key_prefix: &[u8]) -> Result<Vec<(T::Key, T::Value)>, StoreError> {
+    pub fn scan_prefix<T: Table>(
+        &self,
+        key_prefix: &[u8],
+    ) -> Result<Vec<(T::Key, T::Value)>, StoreError> {
         let mut full_prefix = vec![T::PREFIX];
         full_prefix.extend_from_slice(key_prefix);
-        
-        let iter = self.db.iterator(IteratorMode::From(&full_prefix, rocksdb::Direction::Forward));
-        
+
+        let iter = self.db.iterator(IteratorMode::From(
+            &full_prefix,
+            rocksdb::Direction::Forward,
+        ));
+
         let mut results = Vec::new();
         for item in iter {
             let (k, v) = item?;
-            
+
             // Stop when we move past our prefix
             if !k.starts_with(&full_prefix) {
                 break;
             }
-            
+
             // Skip the table prefix byte when decoding the key
             let key = T::Key::decode_key(&k[1..])?;
             let value = T::Value::decode_value(&v)?;
             results.push((key, value));
         }
-        
+
         Ok(results)
     }
 
@@ -137,22 +148,24 @@ impl TypedStore {
     pub fn approximate_count<T: Table>(&self) -> Result<u64, StoreError> {
         let prefix = [T::PREFIX];
         let mut count = 0u64;
-        
-        let iter = self.db.iterator(IteratorMode::From(&prefix, rocksdb::Direction::Forward));
+
+        let iter = self
+            .db
+            .iterator(IteratorMode::From(&prefix, rocksdb::Direction::Forward));
         for item in iter {
             let (k, _) = item?;
             if !k.starts_with(&prefix) {
                 break;
             }
             count += 1;
-            
+
             // Sample for performance on large datasets
             if count % 10000 == 0 {
                 // This gives us a rough estimate
                 break;
             }
         }
-        
+
         Ok(count)
     }
 }

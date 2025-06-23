@@ -6,6 +6,7 @@ use rust_decimal::prelude::ToPrimitive;
 use crate::gamma::types::GammaMarket;
 
 /// Document structure optimized for Milli search
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketDocument {
     /// Primary identifier for the market
@@ -61,6 +62,7 @@ pub struct MarketDocument {
     pub clob_token_ids: Vec<String>,
 }
 
+#[allow(dead_code)]
 impl MarketDocument {
     /// Convert from GammaMarket to optimized search document
     pub fn from_gamma_market(market: &GammaMarket) -> Self {
@@ -108,6 +110,7 @@ impl MarketDocument {
 }
 
 /// Search filters for precise query control
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 pub struct SearchFilters {
     /// Categories to filter by
@@ -137,6 +140,7 @@ pub struct SearchFilters {
 }
 
 /// Available sorting options
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 pub enum SortOption {
     #[default]
@@ -149,6 +153,7 @@ pub enum SortOption {
     EndDate,
 }
 
+#[allow(dead_code)]
 impl SortOption {
     pub fn field_name(&self) -> &'static str {
         match self {
@@ -164,6 +169,7 @@ impl SortOption {
 }
 
 /// Search results with metadata
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SearchResults {
     /// Found documents
@@ -183,6 +189,7 @@ pub struct SearchResults {
 }
 
 /// Quick search suggestions
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SearchSuggestion {
     pub text: String,

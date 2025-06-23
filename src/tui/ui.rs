@@ -7,17 +7,31 @@ use ratatui::{
 };
 use rust_decimal::Decimal;
 
-use crate::tui::{App, AppState};
-use crate::tui::widgets::draw_order_book;
+use crate::tui::navigation::Page;
+use crate::tui::pages::Page as PageTrait;
+use crate::tui::App;
 
 pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
-    match app.state.clone() {
-        AppState::Overview => draw_overview(frame, app),
-        AppState::OrderBook { token_id } => draw_order_book(frame, app, &token_id),
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(0)])
+        .split(frame.area());
+
+    // Render navigation at the top
+    app.navigation.render(frame, chunks[0]);
+
+    // Render the current page
+    let current_page = app.navigation.current_page.clone();
+    match current_page {
+        Page::Stream => app.stream_page.render(frame, chunks[1], app),
+        Page::Orders => app.orders_page.render(frame, chunks[1], app),
+        Page::Tokens => app.tokens_page.render(frame, chunks[1], app),
+        Page::Markets => app.markets_page.render(frame, chunks[1], app),
+        Page::Portfolio => app.portfolio_page.render(frame, chunks[1], app),
     }
 }
 
-fn draw_overview(frame: &mut Frame<'_>, app: &mut App) {
+fn _draw_overview(frame: &mut Frame<'_>, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -27,27 +41,39 @@ fn draw_overview(frame: &mut Frame<'_>, app: &mut App) {
             Constraint::Length(3),      // Help
         ])
         .split(frame.area());
-    
+
     // Title with real-time global event count
     let elapsed = app.elapsed_time();
     let elapsed_str = if elapsed.as_secs() >= 3600 {
-        format!("{}h{}m{}s", elapsed.as_secs() / 3600, (elapsed.as_secs() % 3600) / 60, elapsed.as_secs() % 60)
+        format!(
+            "{}h{}m{}s",
+            elapsed.as_secs() / 3600,
+            (elapsed.as_secs() % 3600) / 60,
+            elapsed.as_secs() % 60
+        )
     } else if elapsed.as_secs() >= 60 {
         format!("{}m{}s", elapsed.as_secs() / 60, elapsed.as_secs() % 60)
     } else {
         format!("{}s", elapsed.as_secs())
     };
-    
-    let title_text = format!("Polymarket WebSocket Stream | 📊 {} total events | ⏱️ {}", 
-                            app.total_events_received, elapsed_str);
+
+    let title_text = format!(
+        "Polymarket WebSocket Stream | 📊 {} total events | ⏱️ {}",
+        app.total_events_received, elapsed_str
+    );
     let title = Paragraph::new(title_text)
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
         .alignment(Alignment::Center)
         .block(Block::default().borders(Borders::ALL));
     frame.render_widget(title, chunks[0]);
-    
+
     // Event log
-    let events: Vec<ListItem> = app.event_log
+    let events: Vec<ListItem> = app
+        .event_log
         .iter()
         .rev()
         .take(20)
@@ -56,21 +82,22 @@ fn draw_overview(frame: &mut Frame<'_>, app: &mut App) {
             ListItem::new(content)
         })
         .collect();
-    
-    let events_list = List::new(events)
-        .block(Block::default()
+
+    let events_list = List::new(events).block(
+        Block::default()
             .borders(Borders::ALL)
-            .title("Recent Events"));
+            .title("Recent Events"),
+    );
     frame.render_widget(events_list, chunks[1]);
-    
+
     // All active tokens
     let all_tokens = app.get_all_active_tokens();
     let selected = app.selected_token_index;
-    
+
     // Calculate visible rows for the token table
     let available_height = chunks[2].height.saturating_sub(3) as usize; // Subtract header + borders
     let total_tokens = all_tokens.len();
-    
+
     // Update scroll position to keep selected item visible
     let scroll_offset = if total_tokens <= available_height {
         0
@@ -83,7 +110,7 @@ fn draw_overview(frame: &mut Frame<'_>, app: &mut App) {
             0
         }
     };
-    
+
     // Get visible tokens based on scroll
     let visible_end = (scroll_offset + available_height).min(total_tokens);
     let visible_tokens = if total_tokens > 0 {
@@ -91,7 +118,7 @@ fn draw_overview(frame: &mut Frame<'_>, app: &mut App) {
     } else {
         &[]
     };
-    
+
     let rows: Vec<Row> = visible_tokens
         .iter()
         .enumerate()
@@ -102,19 +129,19 @@ fn draw_overview(frame: &mut Frame<'_>, app: &mut App) {
             } else {
                 Style::default()
             };
-            
+
             let spread = match (activity.last_bid, activity.last_ask) {
                 (Some(bid), Some(ask)) if ask > bid => format!("${:.4}", ask - bid),
                 (Some(_), Some(_)) => "CROSSED".to_string(),
                 _ => "-".to_string(),
             };
-            
+
             let volume = if activity.total_volume > Decimal::ZERO {
                 format!("${:.0}", activity.total_volume)
             } else {
                 "-".to_string()
             };
-            
+
             let last_update = if let Some(update_time) = activity.last_update {
                 let elapsed = update_time.elapsed();
                 if elapsed.as_secs() < 60 {
@@ -125,7 +152,7 @@ fn draw_overview(frame: &mut Frame<'_>, app: &mut App) {
             } else {
                 "-".to_string()
             };
-            
+
             // Calculate events per second for this token
             let events_per_sec = if let Some(update_time) = activity.last_update {
                 let elapsed_secs = update_time.elapsed().as_secs().max(1) as f64;
@@ -140,53 +167,71 @@ fn draw_overview(frame: &mut Frame<'_>, app: &mut App) {
             } else {
                 "-".to_string()
             };
-            
+
             Row::new(vec![
                 format!("{}", global_index + 1),
-                format!("{}...{}", &activity.token_id[..6], &activity.token_id[activity.token_id.len()-6..]),
+                format!(
+                    "{}...{}",
+                    &activity.token_id[..6],
+                    &activity.token_id[activity.token_id.len() - 6..]
+                ),
                 format!("📊{}", activity.event_count),
                 format!("⚡{}", events_per_sec),
                 format!("🔄{}", activity.trade_count),
-                activity.last_bid.map(|p| format!("${:.4}", p)).unwrap_or_else(|| "-".to_string()),
-                activity.last_ask.map(|p| format!("${:.4}", p)).unwrap_or_else(|| "-".to_string()),
+                activity
+                    .last_bid
+                    .map(|p| format!("${:.4}", p))
+                    .unwrap_or_else(|| "-".to_string()),
+                activity
+                    .last_ask
+                    .map(|p| format!("${:.4}", p))
+                    .unwrap_or_else(|| "-".to_string()),
                 spread,
                 volume,
                 last_update,
-            ]).style(style)
+            ])
+            .style(style)
         })
         .collect();
-    
+
     let table = Table::new(
         rows,
         &[
-            Constraint::Length(3),   // #
-            Constraint::Length(15),  // Token ID
-            Constraint::Length(10),  // Events
-            Constraint::Length(10),  // Events/sec
-            Constraint::Length(8),   // Trades
-            Constraint::Length(11),  // Last Bid
-            Constraint::Length(11),  // Last Ask
-            Constraint::Length(11),  // Spread
-            Constraint::Length(11),  // Volume
-            Constraint::Length(8),   // Last Update
+            Constraint::Length(3),  // #
+            Constraint::Length(15), // Token ID
+            Constraint::Length(10), // Events
+            Constraint::Length(10), // Events/sec
+            Constraint::Length(8),  // Trades
+            Constraint::Length(11), // Last Bid
+            Constraint::Length(11), // Last Ask
+            Constraint::Length(11), // Spread
+            Constraint::Length(11), // Volume
+            Constraint::Length(8),  // Last Update
         ],
     )
-    .header(Row::new(vec!["#", "Token ID", "Events", "Rate", "Trades", "Bid", "Ask", "Spread", "Volume", "Updated"])
-        .style(Style::default().fg(Color::Yellow)))
-    .block(Block::default()
-        .borders(Borders::ALL)
-        .title(format!("All Active Tokens ({} total) - Showing {}-{} | 📈 {} global events", 
-               total_tokens, 
-               scroll_offset + 1, 
-               visible_end,
-               app.total_events_received)));
-    
+    .header(
+        Row::new(vec![
+            "#", "Token ID", "Events", "Rate", "Trades", "Bid", "Ask", "Spread", "Volume",
+            "Updated",
+        ])
+        .style(Style::default().fg(Color::Yellow)),
+    )
+    .block(Block::default().borders(Borders::ALL).title(format!(
+        "All Active Tokens ({} total) - Showing {}-{} | 📈 {} global events",
+        total_tokens,
+        scroll_offset + 1,
+        visible_end,
+        app.total_events_received
+    )));
+
     frame.render_widget(table, chunks[2]);
-    
+
     // Help
-    let help = Paragraph::new("↑/↓: Navigate tokens (auto-scroll) | Enter: View order book | r: Refresh | q: Quit")
-        .style(Style::default().fg(Color::Gray))
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL));
+    let help = Paragraph::new(
+        "↑/↓: Navigate tokens (auto-scroll) | Enter: View order book | r: Refresh | q: Quit",
+    )
+    .style(Style::default().fg(Color::Gray))
+    .alignment(Alignment::Center)
+    .block(Block::default().borders(Borders::ALL));
     frame.render_widget(help, chunks[3]);
 }

@@ -1,10 +1,10 @@
 //! WebSocket event models for Polymarket streaming data
 
-use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize, Deserializer};
-use thiserror::Error;
-use tracing::{debug, info, warn, error};
 use crate::execution::orderbook::PriceLevel;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Deserializer, Serialize};
+use thiserror::Error;
+use tracing::{debug, error, info, trace, warn};
 
 #[derive(Error, Debug)]
 pub enum EventError {
@@ -59,6 +59,12 @@ pub enum PolyEvent {
         side: Side,
         price: Decimal,
         size: Decimal,
+    },
+    /// Last trade price update
+    LastTradePrice {
+        asset_id: String,
+        price: Decimal,
+        timestamp: u64,
     },
 }
 
@@ -151,19 +157,28 @@ pub enum OrderStatus {
 #[derive(Debug, Deserialize)]
 pub struct BookEvent {
     pub asset_id: String,
-    #[serde(rename = "buys", deserialize_with = "deserialize_order_levels")]
+    #[serde(
+        alias = "buys",
+        alias = "bids",
+        deserialize_with = "deserialize_order_levels"
+    )]
     pub bids: Vec<PriceLevel>,
-    #[serde(rename = "sells", deserialize_with = "deserialize_order_levels")]
+    #[serde(
+        alias = "sells",
+        alias = "asks",
+        deserialize_with = "deserialize_order_levels"
+    )]
     pub asks: Vec<PriceLevel>,
+    #[serde(default)]
     pub hash: String,
 }
 
 /// Order level for book events  
 #[derive(Debug, Deserialize)]
 struct OrderLevel {
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     price: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     size: Decimal,
 }
 
@@ -177,10 +192,10 @@ pub struct PriceChangeEvent {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PriceChange {
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
     pub side: Side,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
 }
 
@@ -188,7 +203,7 @@ pub struct PriceChange {
 #[derive(Debug, Deserialize)]
 pub struct TickSizeChangeEvent {
     pub asset_id: String,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub tick_size: Decimal,
 }
 
@@ -196,9 +211,9 @@ pub struct TickSizeChangeEvent {
 #[derive(Debug, Deserialize)]
 pub struct TradeEvent {
     pub asset_id: String,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
     pub side: Side,
     pub timestamp: u64,
@@ -211,15 +226,18 @@ pub struct UserOrderEvent {
     pub asset_id: String,
     pub _market: String,
     pub side: Side,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string", alias = "size_matched")]
+    #[serde(
+        deserialize_with = "_deserialize_decimal_string",
+        alias = "size_matched"
+    )]
     pub _filled_size: Decimal,
     pub status: OrderStatus,
     #[serde(rename = "type")]
-    pub _order_type: String,  // PLACEMENT, UPDATE, CANCELLATION
+    pub _order_type: String, // PLACEMENT, UPDATE, CANCELLATION
     pub _timestamp: u64,
 }
 
@@ -231,12 +249,22 @@ pub struct UserTradeEvent {
     pub asset_id: String,
     pub _market: String,
     pub side: Side,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
-    #[serde(deserialize_with = "deserialize_decimal_string")]
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
     pub timestamp: u64,
-    pub _status: String,  // MINED, CONFIRMED, RETRYING, FAILED
+    pub _status: String, // MINED, CONFIRMED, RETRYING, FAILED
+}
+
+/// Last trade price event
+#[derive(Debug, Deserialize)]
+pub struct LastTradePriceEvent {
+    pub asset_id: String,
+    #[serde(deserialize_with = "deserialize_decimal_flexible")]
+    pub price: Decimal,
+    #[serde(deserialize_with = "deserialize_timestamp_flexible")]
+    pub timestamp: u64,
 }
 
 /// Helper function to deserialize order levels from Polymarket book events
@@ -245,12 +273,14 @@ where
     D: Deserializer<'de>,
 {
     let levels: Vec<OrderLevel> = Deserialize::deserialize(deserializer)?;
-    Ok(levels.into_iter().map(|level| PriceLevel::new(level.price, level.size)).collect())
+    Ok(levels
+        .into_iter()
+        .map(|level| PriceLevel::new(level.price, level.size))
+        .collect())
 }
 
-
 /// Helper function to deserialize decimal from string
-fn deserialize_decimal_string<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+fn _deserialize_decimal_string<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -259,18 +289,128 @@ where
         .map_err(|_| serde::de::Error::custom("Invalid decimal format"))
 }
 
+/// Helper function to deserialize decimal from either string or number
+fn deserialize_decimal_flexible<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::{Error, Visitor};
+    use std::fmt;
+
+    struct DecimalVisitor;
+
+    impl<'de> Visitor<'de> for DecimalVisitor {
+        type Value = Decimal;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a decimal number as string or number")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            value
+                .parse::<Decimal>()
+                .map_err(|_| E::custom(format!("Invalid decimal string: {}", value)))
+        }
+
+        fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Decimal::try_from(value)
+                .map_err(|_| E::custom(format!("Invalid decimal number: {}", value)))
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Ok(Decimal::from(value))
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Ok(Decimal::from(value))
+        }
+    }
+
+    deserializer.deserialize_any(DecimalVisitor)
+}
+
+/// Helper function to deserialize timestamp from either string or number
+fn deserialize_timestamp_flexible<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::{Error, Visitor};
+    use std::fmt;
+
+    struct TimestampVisitor;
+
+    impl<'de> Visitor<'de> for TimestampVisitor {
+        type Value = u64;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a timestamp as string or number")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            value
+                .parse::<u64>()
+                .map_err(|_| E::custom(format!("Invalid timestamp string: {}", value)))
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Ok(value)
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            if value < 0 {
+                Err(E::custom(format!("Invalid negative timestamp: {}", value)))
+            } else {
+                Ok(value as u64)
+            }
+        }
+    }
+
+    deserializer.deserialize_any(TimestampVisitor)
+}
+
+/// Default hash value for book events when hash field is missing
+fn _default_hash() -> String {
+    "unknown".to_string()
+}
+
 /// Parse a raw WebSocket message into typed events
 pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
     debug!(event_type = %msg.event_type, "Parsing WebSocket message");
-    
+
     match msg.event_type.as_str() {
         "book" => {
             let event: BookEvent = serde_json::from_value(msg.data.clone())
                 .map_err(|e| {
-                    error!(error = %e, event_type = "book", "Failed to parse book event");
+                    error!(error = %e, event_type = "book", raw_data = ?msg.data, "Failed to parse book event");
+                    // Log the keys available in the data to help debug
+                    if let Some(obj) = msg.data.as_object() {
+                        let keys: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
+                        error!(available_keys = ?keys, "Available keys in book event");
+                    }
                     EventError::InvalidFormat(e.to_string())
                 })?;
-            
+
             info!(
                 asset_id = %event.asset_id,
                 bid_levels = event.bids.len(),
@@ -278,7 +418,7 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
                 hash = %event.hash,
                 "Parsed order book snapshot"
             );
-            
+
             Ok(vec![PolyEvent::Book {
                 asset_id: event.asset_id,
                 bids: event.bids,
@@ -292,14 +432,14 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
                     error!(error = %e, event_type = "price_change", "Failed to parse price change event");
                     EventError::InvalidFormat(e.to_string())
                 })?;
-            
+
             debug!(
                 asset_id = %event.asset_id,
                 changes_count = event.changes.len(),
                 hash = %event.hash,
                 "Parsed price change event"
             );
-            
+
             // Return all changes as individual events
             let mut events = Vec::new();
             for change in &event.changes {
@@ -310,7 +450,7 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
                     size = %change.size,
                     "Processing price change"
                 );
-                
+
                 events.push(PolyEvent::PriceChange {
                     asset_id: event.asset_id.clone(),
                     side: change.side,
@@ -319,12 +459,14 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
                     hash: event.hash.clone(),
                 });
             }
-            
+
             if events.is_empty() {
                 warn!(asset_id = %event.asset_id, "Price change event has no changes");
-                Err(EventError::InvalidFormat("Price change event has no changes".to_string()))
+                Err(EventError::InvalidFormat(
+                    "Price change event has no changes".to_string(),
+                ))
             } else {
-                info!(asset_id = %event.asset_id, events_count = events.len(), "Generated price change events");
+                trace!(asset_id = %event.asset_id, events_count = events.len(), "Generated price change events");
                 Ok(events)
             }
         }
@@ -334,25 +476,24 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
                     error!(error = %e, event_type = "tick_size_change", "Failed to parse tick size change event");
                     EventError::InvalidFormat(e.to_string())
                 })?;
-            
+
             info!(
                 asset_id = %event.asset_id,
                 tick_size = %event.tick_size,
                 "Parsed tick size change event"
             );
-            
+
             Ok(vec![PolyEvent::TickSizeChange {
                 asset_id: event.asset_id,
                 tick_size: event.tick_size,
             }])
         }
         "trade" => {
-            let event: TradeEvent = serde_json::from_value(msg.data.clone())
-                .map_err(|e| {
-                    error!(error = %e, event_type = "trade", "Failed to parse trade event");
-                    EventError::InvalidFormat(e.to_string())
-                })?;
-            
+            let event: TradeEvent = serde_json::from_value(msg.data.clone()).map_err(|e| {
+                error!(error = %e, event_type = "trade", "Failed to parse trade event");
+                EventError::InvalidFormat(e.to_string())
+            })?;
+
             info!(
                 asset_id = %event.asset_id,
                 price = %event.price,
@@ -361,7 +502,7 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
                 timestamp = event.timestamp,
                 "Parsed trade event"
             );
-            
+
             Ok(vec![PolyEvent::Trade {
                 asset_id: event.asset_id,
                 price: event.price,
@@ -370,12 +511,11 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
             }])
         }
         "order" => {
-            let event: UserOrderEvent = serde_json::from_value(msg.data.clone())
-                .map_err(|e| {
-                    error!(error = %e, event_type = "order", "Failed to parse user order event");
-                    EventError::InvalidFormat(e.to_string())
-                })?;
-            
+            let event: UserOrderEvent = serde_json::from_value(msg.data.clone()).map_err(|e| {
+                error!(error = %e, event_type = "order", "Failed to parse user order event");
+                EventError::InvalidFormat(e.to_string())
+            })?;
+
             info!(
                 order_id = %event.order_id,
                 asset_id = %event.asset_id,
@@ -385,7 +525,7 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
                 status = ?event.status,
                 "Parsed user order event"
             );
-            
+
             Ok(vec![PolyEvent::MyOrder {
                 asset_id: event.asset_id,
                 side: event.side,
@@ -395,12 +535,11 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
             }])
         }
         "user_trade" => {
-            let event: UserTradeEvent = serde_json::from_value(msg.data.clone())
-                .map_err(|e| {
-                    error!(error = %e, event_type = "user_trade", "Failed to parse user trade event");
-                    EventError::InvalidFormat(e.to_string())
-                })?;
-            
+            let event: UserTradeEvent = serde_json::from_value(msg.data.clone()).map_err(|e| {
+                error!(error = %e, event_type = "user_trade", "Failed to parse user trade event");
+                EventError::InvalidFormat(e.to_string())
+            })?;
+
             info!(
                 trade_id = %event.trade_id,
                 order_id = %event.order_id,
@@ -411,7 +550,7 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
                 timestamp = event.timestamp,
                 "Parsed user trade event"
             );
-            
+
             Ok(vec![PolyEvent::MyTrade {
                 asset_id: event.asset_id,
                 side: event.side,
@@ -419,9 +558,46 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
                 size: event.size,
             }])
         }
+        "last_trade_price" => {
+            // Debug log the raw JSON data
+            debug!(
+                event_type = "last_trade_price",
+                raw_data = ?msg.data,
+                "Raw last_trade_price event data"
+            );
+
+            let event: LastTradePriceEvent =
+                serde_json::from_value(msg.data.clone()).map_err(|e| {
+                    error!(
+                        error = %e,
+                        event_type = "last_trade_price",
+                        raw_data = ?msg.data,
+                        "Failed to parse last trade price event"
+                    );
+                    // Log the keys available in the data to help debug
+                    if let Some(obj) = msg.data.as_object() {
+                        let keys: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
+                        error!(available_keys = ?keys, "Available keys in last_trade_price event");
+                    }
+                    EventError::InvalidFormat(e.to_string())
+                })?;
+
+            info!(
+                asset_id = %event.asset_id,
+                price = %event.price,
+                timestamp = event.timestamp,
+                "Parsed last trade price event"
+            );
+
+            Ok(vec![PolyEvent::LastTradePrice {
+                asset_id: event.asset_id,
+                price: event.price,
+                timestamp: event.timestamp,
+            }])
+        }
         _ => {
             warn!(event_type = %msg.event_type, "Unknown event type");
             Err(EventError::UnknownEventType(msg.event_type.clone()))
         }
     }
-} 
+}

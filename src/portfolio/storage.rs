@@ -7,18 +7,19 @@
 //! - orders/active.json - Active orders cache
 //! - stats/daily/YYYY-MM-DD.json - Daily statistics
 
-use anyhow::{Result, Context};
-use chrono::{DateTime, Utc, Local};
+use anyhow::{Context, Result};
+use chrono::{DateTime, Local, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tracing::{info, warn};
 
-use crate::portfolio::types::*;
 use crate::portfolio::orders_api::PolymarketOrder;
+use crate::portfolio::types::*;
 
 /// Portfolio storage manager
+#[derive(Clone)]
 pub struct PortfolioStorage {
     /// Base directory for account data
     account_dir: PathBuf,
@@ -200,11 +201,15 @@ impl PortfolioStorage {
         ];
 
         for dir in &dirs {
-            fs::create_dir_all(dir).await
+            fs::create_dir_all(dir)
+                .await
                 .context(format!("Failed to create directory: {:?}", dir))?;
         }
 
-        info!("Initialized portfolio storage directories at: {:?}", self.account_dir);
+        info!(
+            "Initialized portfolio storage directories at: {:?}",
+            self.account_dir
+        );
         Ok(())
     }
 
@@ -220,7 +225,8 @@ impl PortfolioStorage {
         let json = serde_json::to_string_pretty(&snapshot)?;
 
         // Write to file
-        fs::write(&filepath, json).await
+        fs::write(&filepath, json)
+            .await
             .context("Failed to write snapshot")?;
 
         info!("Saved portfolio snapshot: {}", filename);
@@ -231,7 +237,7 @@ impl PortfolioStorage {
     #[allow(dead_code)]
     pub async fn load_latest_snapshot(&self) -> Result<Option<PortfolioSnapshot>> {
         let snapshots_dir = self.account_dir.join("snapshots");
-        
+
         if !snapshots_dir.exists() {
             return Ok(None);
         }
@@ -267,7 +273,7 @@ impl PortfolioStorage {
     }
 
     /// Save current positions
-    pub async fn save_positions(&self, positions: &[Position]) -> Result<()> {
+    pub async fn _save_positions(&self, positions: &[Position]) -> Result<()> {
         self.init_directories().await?;
 
         let filepath = self.account_dir.join("positions").join("current.json");
@@ -288,14 +294,14 @@ impl PortfolioStorage {
     #[allow(dead_code)]
     pub async fn load_positions(&self) -> Result<Vec<Position>> {
         let filepath = self.account_dir.join("positions").join("current.json");
-        
+
         if !filepath.exists() {
             return Ok(Vec::new());
         }
 
         let content = fs::read_to_string(&filepath).await?;
         let data: serde_json::Value = serde_json::from_str(&content)?;
-        
+
         if let Some(positions) = data.get("positions") {
             let positions: Vec<Position> = serde_json::from_value(positions.clone())?;
             Ok(positions)
@@ -305,7 +311,7 @@ impl PortfolioStorage {
     }
 
     /// Save active orders cache
-    pub async fn save_active_orders(&self, orders: &[PolymarketOrder]) -> Result<()> {
+    pub async fn _save_active_orders(&self, orders: &[PolymarketOrder]) -> Result<()> {
         self.init_directories().await?;
 
         let filepath = self.account_dir.join("orders").join("active.json");
@@ -329,7 +335,10 @@ impl PortfolioStorage {
 
         // Get today's trade file
         let date = Local::now().format("%Y-%m-%d").to_string();
-        let filepath = self.account_dir.join("trades").join(format!("{}.json", date));
+        let filepath = self
+            .account_dir
+            .join("trades")
+            .join(format!("{}.json", date));
 
         // Load existing trades or create new list
         let mut trades: Vec<TradeRecord> = if filepath.exists() {
@@ -346,13 +355,21 @@ impl PortfolioStorage {
         let json = serde_json::to_string_pretty(&trades)?;
         fs::write(&filepath, json).await?;
 
-        info!("Recorded trade: {} in market {}", trade.trade_id, &trade.market_id[..8]);
+        info!(
+            "Recorded trade: {} in market {}",
+            trade.trade_id,
+            &trade.market_id[..8]
+        );
         Ok(())
     }
 
     /// Load trade history for date range
     #[allow(dead_code)]
-    pub async fn load_trade_history(&self, start_date: DateTime<Utc>, end_date: DateTime<Utc>) -> Result<Vec<TradeRecord>> {
+    pub async fn load_trade_history(
+        &self,
+        start_date: DateTime<Utc>,
+        end_date: DateTime<Utc>,
+    ) -> Result<Vec<TradeRecord>> {
         let trades_dir = self.account_dir.join("trades");
         let mut all_trades = Vec::new();
 
@@ -384,8 +401,9 @@ impl PortfolioStorage {
         // Sort by timestamp
         all_trades.sort_by_key(|t| t.timestamp);
 
-        info!("Loaded {} trades from {} to {}", 
-            all_trades.len(), 
+        info!(
+            "Loaded {} trades from {} to {}",
+            all_trades.len(),
             start_date.format("%Y-%m-%d"),
             end_date.format("%Y-%m-%d")
         );
@@ -398,7 +416,8 @@ impl PortfolioStorage {
     pub async fn save_daily_stats(&self, stats: &DailyStats) -> Result<()> {
         self.init_directories().await?;
 
-        let filepath = self.account_dir
+        let filepath = self
+            .account_dir
             .join("stats")
             .join("daily")
             .join(format!("{}.json", stats.date));
@@ -439,8 +458,8 @@ impl PortfolioStorage {
             balances,
             metadata: SnapshotMetadata {
                 version: "1.0".to_string(),
-                reason: SnapshotReason::Periodic { 
-                    interval: interval.to_string() 
+                reason: SnapshotReason::Periodic {
+                    interval: interval.to_string(),
                 },
                 previous_snapshot: prev_filename,
                 previous_hash: prev_hash,
@@ -462,7 +481,7 @@ impl PortfolioStorage {
     #[allow(dead_code)]
     pub async fn clean_old_snapshots(&self, keep_count: usize) -> Result<usize> {
         let snapshots_dir = self.account_dir.join("snapshots");
-        
+
         if !snapshots_dir.exists() {
             return Ok(0);
         }

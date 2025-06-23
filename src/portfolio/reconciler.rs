@@ -2,15 +2,15 @@
 //!
 //! Builds positions from order history and tracks P&L
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
-use crate::portfolio::types::*;
 use crate::portfolio::orders_api::PolymarketOrder;
-use crate::portfolio::storage::{TradeRecord, PositionSummary};
+use crate::portfolio::storage::{PositionSummary, TradeRecord};
+use crate::portfolio::types::*;
 
 /// Position reconciler that builds positions from orders
 pub struct PositionReconciler {
@@ -36,12 +36,13 @@ impl PositionReconciler {
 
         // Group filled orders by token_id
         let mut filled_by_token: HashMap<String, Vec<&PolymarketOrder>> = HashMap::new();
-        
+
         for order in orders {
             // Only process filled orders
             if order.status == "FILLED" {
                 if let Some(token_id) = &order.token_id {
-                    filled_by_token.entry(token_id.clone())
+                    filled_by_token
+                        .entry(token_id.clone())
                         .or_default()
                         .push(order);
                 }
@@ -50,8 +51,12 @@ impl PositionReconciler {
 
         // Build positions from filled orders
         for (token_id, token_orders) in filled_by_token {
-            debug!("Processing {} filled orders for token {}", token_orders.len(), token_id);
-            
+            debug!(
+                "Processing {} filled orders for token {}",
+                token_orders.len(),
+                token_id
+            );
+
             // Sort orders by created_at timestamp
             let mut sorted_orders = token_orders;
             sorted_orders.sort_by_key(|o| o.created_at);
@@ -103,9 +108,11 @@ impl PositionReconciler {
 
         // Process each order
         for order in orders {
-            let filled_size = order.size_matched.parse::<Decimal>()
+            let filled_size = order
+                .size_matched
+                .parse::<Decimal>()
                 .unwrap_or_else(|_| Decimal::ZERO);
-            
+
             if filled_size.is_zero() {
                 continue;
             }
@@ -122,7 +129,7 @@ impl PositionReconciler {
                 "SELL" => {
                     total_sell_size += filled_size;
                     total_sell_value += filled_size * order.price;
-                    
+
                     // Calculate realized P&L for this sell
                     if total_buy_size > Decimal::ZERO && position.average_price > Decimal::ZERO {
                         let realized = (order.price - position.average_price) * filled_size;
@@ -137,7 +144,7 @@ impl PositionReconciler {
 
         // Calculate net position
         position.size = total_buy_size - total_sell_size;
-        
+
         if position.size > Decimal::ZERO {
             // Net long position
             position.side = PositionSide::Long;
@@ -167,7 +174,9 @@ impl PositionReconciler {
     /// Create trade record from order execution
     #[allow(dead_code)]
     pub fn create_trade_record(&self, order: &PolymarketOrder) -> Result<TradeRecord> {
-        let filled_size = order.size_matched.parse::<Decimal>()
+        let filled_size = order
+            .size_matched
+            .parse::<Decimal>()
             .context("Failed to parse filled size")?;
 
         // Get current position for this token
@@ -212,16 +221,16 @@ impl PositionReconciler {
         for (token_id, position) in &mut self.positions {
             if let Some(&price) = prices.get(token_id) {
                 position.current_price = Some(price);
-                
+
                 // Calculate unrealized P&L
                 let current_value = position.size * price;
                 let cost_basis = position.size * position.average_price;
-                
+
                 position.unrealized_pnl = Some(match position.side {
                     PositionSide::Long => current_value - cost_basis,
                     PositionSide::Short => cost_basis - current_value,
                 });
-                
+
                 position.updated_at = Utc::now();
             }
         }
@@ -244,67 +253,74 @@ impl PositionReconciler {
     /// Calculate portfolio summary statistics
     pub fn _calculate_stats(&self) -> PortfolioStats {
         let positions: Vec<&Position> = self.positions.values().collect();
-        
+
         let total_positions = positions.len();
-        let open_positions = positions.iter()
+        let open_positions = positions
+            .iter()
             .filter(|p| p.status == PositionStatus::Open)
             .count();
-        
-        let total_realized_pnl: Decimal = positions.iter()
-            .map(|p| p.realized_pnl)
-            .sum();
-        
-        let total_unrealized_pnl: Decimal = positions.iter()
-            .filter_map(|p| p.unrealized_pnl)
-            .sum();
-        
-        let total_fees_paid: Decimal = positions.iter()
-            .map(|p| p.fees_paid)
-            .sum();
-        
+
+        let total_realized_pnl: Decimal = positions.iter().map(|p| p.realized_pnl).sum();
+
+        let total_unrealized_pnl: Decimal = positions.iter().filter_map(|p| p.unrealized_pnl).sum();
+
+        let total_fees_paid: Decimal = positions.iter().map(|p| p.fees_paid).sum();
+
         // Calculate win rate from closed positions
-        let closed_positions: Vec<&&Position> = positions.iter()
+        let closed_positions: Vec<&&Position> = positions
+            .iter()
             .filter(|p| p.status == PositionStatus::Closed)
             .collect();
-        
+
         let (win_rate, average_win, average_loss) = if !closed_positions.is_empty() {
-            let wins: Vec<&&Position> = closed_positions.iter()
+            let wins: Vec<&&Position> = closed_positions
+                .iter()
                 .filter(|p| p.realized_pnl > Decimal::ZERO)
                 .cloned()
                 .collect();
-            
-            let losses: Vec<&&Position> = closed_positions.iter()
+
+            let losses: Vec<&&Position> = closed_positions
+                .iter()
                 .filter(|p| p.realized_pnl < Decimal::ZERO)
                 .cloned()
                 .collect();
-            
+
             let win_rate = if !closed_positions.is_empty() {
-                Some(Decimal::from(wins.len()) / Decimal::from(closed_positions.len()) * Decimal::from(100))
+                Some(
+                    Decimal::from(wins.len()) / Decimal::from(closed_positions.len())
+                        * Decimal::from(100),
+                )
             } else {
                 None
             };
-            
+
             let average_win = if !wins.is_empty() {
-                Some(wins.iter().map(|p| p.realized_pnl).sum::<Decimal>() / Decimal::from(wins.len()))
+                Some(
+                    wins.iter().map(|p| p.realized_pnl).sum::<Decimal>()
+                        / Decimal::from(wins.len()),
+                )
             } else {
                 None
             };
-            
+
             let average_loss = if !losses.is_empty() {
-                Some(losses.iter().map(|p| p.realized_pnl.abs()).sum::<Decimal>() / Decimal::from(losses.len()))
+                Some(
+                    losses.iter().map(|p| p.realized_pnl.abs()).sum::<Decimal>()
+                        / Decimal::from(losses.len()),
+                )
             } else {
                 None
             };
-            
+
             (win_rate, average_win, average_loss)
         } else {
             (None, None, None)
         };
-        
+
         PortfolioStats {
-            total_balance: Decimal::ZERO, // Will be set externally
+            total_balance: Decimal::ZERO,     // Will be set externally
             available_balance: Decimal::ZERO, // Will be set externally
-            locked_balance: Decimal::ZERO, // Will be set externally
+            locked_balance: Decimal::ZERO,    // Will be set externally
             total_positions,
             open_positions,
             total_realized_pnl,

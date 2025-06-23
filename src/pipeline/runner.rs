@@ -1,12 +1,12 @@
 //! Pipeline execution engine
 
 use super::{Pipeline, PipelineContext, PipelineStep};
-use anyhow::{Result, Context};
+use crate::datasets::save_command_metadata;
+use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
-use tracing::{info, warn, error, debug};
-use crate::datasets::save_command_metadata;
-use std::collections::HashMap;
+use tracing::{debug, error, info, warn};
 
 /// Pipeline execution statistics
 #[derive(Debug, Default)]
@@ -26,15 +26,14 @@ pub struct PipelineRunner {
 }
 
 impl PipelineRunner {
-
     /// Create a new pipeline runner with auto-detection of cargo vs binary execution
     pub fn new_auto() -> Self {
         let (binary_name, detection_info) = Self::detect_execution_method();
-        
+
         // Log detection info
         info!("🔍 Detected execution method: {}", detection_info);
         info!("📦 Using command: {}", binary_name);
-        
+
         Self {
             binary_name,
             verbose: false,
@@ -46,62 +45,65 @@ impl PipelineRunner {
         // Get current executable path
         let current_exe = std::env::current_exe();
         let args: Vec<String> = std::env::args().collect();
-        
+
         debug!("Current executable: {:?}", current_exe);
         debug!("Command line args: {:?}", args);
 
         // Check if current executable path contains target/debug or target/release
         if let Ok(exe_path) = &current_exe {
             let exe_str = exe_path.to_string_lossy();
-            
+
             if exe_str.contains("target/debug") {
                 return (
                     "cargo run --".to_string(),
-                    format!("Cargo development build ({})", exe_str)
+                    format!("Cargo development build ({})", exe_str),
                 );
             }
-            
+
             if exe_str.contains("target/release") {
                 return (
                     "cargo run --".to_string(),
-                    format!("Cargo release build ({})", exe_str)
+                    format!("Cargo release build ({})", exe_str),
                 );
             }
-            
+
             // Check if executable name starts with polybot (installed binary)
             if let Some(file_name) = exe_path.file_name().and_then(|n| n.to_str()) {
                 if file_name.starts_with("polybot") && !exe_str.contains("target") {
                     return (
                         "polybot".to_string(),
-                        format!("Standalone binary ({})", exe_str)
+                        format!("Standalone binary ({})", exe_str),
                     );
                 }
             }
         }
-        
+
         // Fallback: check environment variables that cargo sets
         if std::env::var("CARGO_PKG_NAME").is_ok() || std::env::var("CARGO_MANIFEST_DIR").is_ok() {
             return (
                 "cargo run --".to_string(),
-                "Cargo environment detected".to_string()
+                "Cargo environment detected".to_string(),
             );
         }
-        
+
         // Check if we can find cargo in the process hierarchy (last resort)
         if let Ok(exe_path) = &current_exe {
             let exe_str = exe_path.to_string_lossy();
             if exe_str.contains("cargo") {
                 return (
                     "cargo run --".to_string(),
-                    "Cargo in executable path".to_string()
+                    "Cargo in executable path".to_string(),
                 );
             }
         }
-        
+
         // Default to standalone binary
         (
             "polybot".to_string(),
-            format!("Default (standalone binary assumed, exe: {:?})", current_exe)
+            format!(
+                "Default (standalone binary assumed, exe: {:?})",
+                current_exe
+            ),
         )
     }
 
@@ -146,12 +148,18 @@ impl PipelineRunner {
                 }
                 Err(e) => {
                     stats.failed_steps += 1;
-                    
+
                     if step.continue_on_error {
-                        warn!("⚠️  Step {}/{} failed but continuing: {}", step_num, stats.total_steps, e);
+                        warn!(
+                            "⚠️  Step {}/{} failed but continuing: {}",
+                            step_num, stats.total_steps, e
+                        );
                     } else {
-                        error!("❌ Step {}/{} failed, stopping pipeline: {}", step_num, stats.total_steps, e);
-                        
+                        error!(
+                            "❌ Step {}/{} failed, stopping pipeline: {}",
+                            step_num, stats.total_steps, e
+                        );
+
                         stats.total_duration = start_time.elapsed();
                         return Err(e);
                     }
@@ -163,38 +171,67 @@ impl PipelineRunner {
 
         // Log summary
         info!("🎉 Pipeline completed!");
-        info!("📊 Summary: {}/{} steps successful, {} failed", 
-            stats.successful_steps, stats.total_steps, stats.failed_steps);
+        info!(
+            "📊 Summary: {}/{} steps successful, {} failed",
+            stats.successful_steps, stats.total_steps, stats.failed_steps
+        );
         info!("⏱️  Total duration: {:?}", stats.total_duration);
 
         // Save pipeline metadata if we have a pipeline output directory
         if let Some(output_dir) = context.parameters.get("pipeline_output_dir") {
             let pipeline_path = std::path::PathBuf::from(output_dir);
-            
+
             // Create the output directory if it doesn't exist
             if let Err(e) = std::fs::create_dir_all(&pipeline_path) {
                 warn!("Failed to create pipeline output directory: {}", e);
             } else {
                 // Save pipeline metadata
                 let mut additional_info = HashMap::new();
-                additional_info.insert("dataset_type".to_string(), serde_json::json!(format!("Pipeline({})", pipeline.name)));
-                additional_info.insert("pipeline_name".to_string(), serde_json::json!(pipeline.name));
-                additional_info.insert("total_steps".to_string(), serde_json::json!(stats.total_steps));
-                additional_info.insert("successful_steps".to_string(), serde_json::json!(stats.successful_steps));
-                additional_info.insert("failed_steps".to_string(), serde_json::json!(stats.failed_steps));
-                additional_info.insert("total_duration_secs".to_string(), serde_json::json!(stats.total_duration.as_secs()));
-                
+                additional_info.insert(
+                    "dataset_type".to_string(),
+                    serde_json::json!(format!("Pipeline({})", pipeline.name)),
+                );
+                additional_info.insert(
+                    "pipeline_name".to_string(),
+                    serde_json::json!(pipeline.name),
+                );
+                additional_info.insert(
+                    "total_steps".to_string(),
+                    serde_json::json!(stats.total_steps),
+                );
+                additional_info.insert(
+                    "successful_steps".to_string(),
+                    serde_json::json!(stats.successful_steps),
+                );
+                additional_info.insert(
+                    "failed_steps".to_string(),
+                    serde_json::json!(stats.failed_steps),
+                );
+                additional_info.insert(
+                    "total_duration_secs".to_string(),
+                    serde_json::json!(stats.total_duration.as_secs()),
+                );
+
                 // Add step information
-                let steps_info: Vec<serde_json::Value> = pipeline.steps.iter().map(|step| {
-                    serde_json::json!({
-                        "name": step.name,
-                        "command": step.command,
-                        "args": step.args
+                let steps_info: Vec<serde_json::Value> = pipeline
+                    .steps
+                    .iter()
+                    .map(|step| {
+                        serde_json::json!({
+                            "name": step.name,
+                            "command": step.command,
+                            "args": step.args
+                        })
                     })
-                }).collect();
+                    .collect();
                 additional_info.insert("steps".to_string(), serde_json::json!(steps_info));
-                
-                if let Err(e) = save_command_metadata(&pipeline_path, "pipeline", &[pipeline.name.clone()], Some(additional_info)) {
+
+                if let Err(e) = save_command_metadata(
+                    &pipeline_path,
+                    "pipeline",
+                    &[pipeline.name.clone()],
+                    Some(additional_info),
+                ) {
                     warn!("Failed to save pipeline metadata: {}", e);
                 }
             }
@@ -212,16 +249,22 @@ impl PipelineRunner {
         step_num: usize,
     ) -> Result<()> {
         let total_steps = pipeline.steps.len();
-        
+
         info!("🔄 Step {}/{}: {}", step_num, total_steps, step.name);
 
         if context.dry_run {
-            let resolved_args: Vec<String> = step.args.iter()
+            let resolved_args: Vec<String> = step
+                .args
+                .iter()
                 .map(|arg| pipeline.resolve_parameters(arg, context))
                 .collect();
-            
-            info!("   Dry run: {} {} {}", 
-                self.binary_name, step.command, resolved_args.join(" "));
+
+            info!(
+                "   Dry run: {} {} {}",
+                self.binary_name,
+                step.command,
+                resolved_args.join(" ")
+            );
             return Ok(());
         }
 
@@ -269,16 +312,18 @@ impl PipelineRunner {
         let duration = step_start.elapsed();
 
         if output.status.success() {
-            info!("✅ Step {}/{} completed in {:?}", 
-                step_num, total_steps, duration);
-            
+            info!(
+                "✅ Step {}/{} completed in {:?}",
+                step_num, total_steps, duration
+            );
+
             if self.verbose && !output.stdout.is_empty() {
                 info!("   Output: {}", String::from_utf8_lossy(&output.stdout));
             }
         } else {
             let stderr_output = String::from_utf8_lossy(&output.stderr);
             let stdout_output = String::from_utf8_lossy(&output.stdout);
-            
+
             let error_details = if !stderr_output.is_empty() {
                 format!("stderr: {}", stderr_output.trim())
             } else if !stdout_output.is_empty() {
@@ -321,25 +366,30 @@ impl PipelineRunner {
                  • Create the pipelines directory: mkdir -p \"{}\"\n\
                  • Check that you're running from the correct working directory\n\
                  • Verify the path is correct (use absolute path if needed)",
-                pipelines_dir, pipelines_dir
+                pipelines_dir,
+                pipelines_dir
             ));
         }
 
         let mut pipelines = vec![];
-        
+
         for entry in std::fs::read_dir(dir)
-            .with_context(|| format!("Failed to read pipelines directory: {}", dir.display()))? {
-                
+            .with_context(|| format!("Failed to read pipelines directory: {}", dir.display()))?
+        {
             let entry = entry.with_context(|| "Failed to process pipeline directory entry")?;
-            
+
             let path = entry.path();
-            
-            if path.extension().and_then(|s| s.to_str()) == Some("yaml") || 
-               path.extension().and_then(|s| s.to_str()) == Some("yml") {
+
+            if path.extension().and_then(|s| s.to_str()) == Some("yaml")
+                || path.extension().and_then(|s| s.to_str()) == Some("yml")
+            {
                 if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
                     pipelines.push(name.to_string());
                 } else {
-                    warn!("Skipping pipeline file with invalid name: {}", path.display());
+                    warn!(
+                        "Skipping pipeline file with invalid name: {}",
+                        path.display()
+                    );
                 }
             }
         }
@@ -365,10 +415,9 @@ mod tests {
 
     #[test]
     fn test_pipeline_runner_creation() {
-        let runner = PipelineRunner::new("polybot".to_string())
-            .with_verbose(true);
-        
+        let runner = PipelineRunner::new("polybot".to_string()).with_verbose(true);
+
         assert_eq!(runner.binary_name, "polybot");
         assert!(runner.verbose);
     }
-} 
+}

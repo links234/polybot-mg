@@ -24,9 +24,11 @@ polybot pipeline
 ## Core Features
 
 - 🔐 **Secure Authentication**: L1 (EIP-712) and L2 (API key) authentication flows
-- 📊 **Real-time Streaming**: WebSocket-based live market data with TUI interface
+- 📊 **Real-time Streaming**: WebSocket-based live market data with TUI and GUI interfaces
+- 🖥️ **Enhanced UI**: Both terminal (TUI) and graphical (GUI) interfaces with egui
 - 💰 **Trading Operations**: Place buy/sell orders and manage positions
 - 🔄 **Market Analysis**: Comprehensive data fetching and enrichment pipelines
+- 📈 **WebSocket Portfolio**: Real-time portfolio updates via WebSocket events
 - 🧪 **Testnet Support**: Mumbai sandbox environment for testing
 - 🚀 **High Performance**: Async Rust with optimal performance
 
@@ -37,10 +39,13 @@ See module-specific READMEs for detailed documentation:
 - [`src/cli/`](src/cli/README.md) - Command-line interface and argument parsing
 - [`src/ws/`](src/ws/README.md) - WebSocket client and real-time data streaming
 - [`src/tui/`](src/tui/README.md) - Terminal user interface components
+- [`src/gui/`](src/gui/README.md) - Graphical user interface with egui
 - [`src/markets/`](src/markets/README.md) - Market data fetching and management
 - [`src/services/`](src/services/README.md) - Background services and streaming
 - [`src/pipeline/`](src/pipeline/README.md) - Workflow automation system
 - [`src/datasets/`](src/datasets/README.md) - Data management and analysis
+- [`src/portfolio/`](src/portfolio/README.md) - Portfolio management and tracking
+- [`src/execution/`](src/execution/README.md) - Order execution engine
 - [`src/auth.rs`](src/) - Authentication and credential management
 - [`src/config.rs`](src/) - Configuration and encryption utilities
 

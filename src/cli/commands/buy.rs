@@ -1,19 +1,19 @@
+use crate::data_paths::DataPaths;
 use anyhow::Result;
 use clap::Args;
 use rust_decimal::Decimal;
-use tracing::info;
-use crate::data_paths::DataPaths;
+use tracing::{info, warn};
 use crate::portfolio::command_handlers::enhanced_buy_command;
 
 #[derive(Args, Clone)]
 pub struct BuyArgs {
     /// Token ID
     pub token_id: String,
-    
+
     /// Price in USDC (e.g., 0.48)
     #[arg(long)]
     pub price: Decimal,
-    
+
     /// Size in USDC
     #[arg(long)]
     pub size: Decimal,
@@ -37,6 +37,12 @@ impl BuyCommand {
     }
 
     pub async fn execute(&self, host: &str, data_paths: DataPaths) -> Result<()> {
+        // Check confirmation in non-production environments
+        if !self.args.yes && std::env::var("RUST_ENV").unwrap_or_default() != "production" {
+            warn!("⚠️  Order confirmation required. Use --yes to confirm.");
+            return Ok(());
+        }
+
         info!("Executing buy command for token: {}", self.args.token_id);
         
         // Use the enhanced buy command from portfolio system
@@ -52,4 +58,4 @@ impl BuyCommand {
         
         Ok(())
     }
-} 
+}

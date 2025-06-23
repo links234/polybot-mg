@@ -12,16 +12,18 @@
 //! For comprehensive documentation, see [README.md](./README.md)
 
 pub mod app;
-pub mod ui;
+pub mod dataset_selector;
 pub mod events;
-pub mod widgets;
-pub mod portfolio_view;
-pub mod portfolio_simple;
 pub mod index;
 pub mod markets;
-pub mod dataset_selector;
+pub mod navigation;
+pub mod pages;
+pub mod portfolio_simple;
+pub mod portfolio_view;
 pub mod selection_builder;
 pub mod selections_menu;
+pub mod ui;
+pub mod widgets;
 
 pub use app::{App, AppState};
 pub use events::EventHandler;
@@ -84,9 +86,18 @@ pub enum IndexingPhase {
 
 #[derive(Debug, Clone)]
 pub enum ProgressUpdate {
-    FileStart { file_index: usize, total_files: usize, file_name: String, market_count: usize },
-    MarketProcessed { markets_in_batch: usize },
-    FileComplete { duplicates: usize },
+    FileStart {
+        file_index: usize,
+        total_files: usize,
+        file_name: String,
+        market_count: usize,
+    },
+    MarketProcessed {
+        markets_in_batch: usize,
+    },
+    FileComplete {
+        duplicates: usize,
+    },
     PhaseChange(IndexingPhase),
     Event(String),
     ConditionCount(usize),
@@ -95,6 +106,9 @@ pub enum ProgressUpdate {
     Error(String),
 }
 
-pub fn create_progress_channel() -> (tokio::sync::mpsc::UnboundedSender<ProgressUpdate>, tokio::sync::mpsc::UnboundedReceiver<ProgressUpdate>) {
+pub fn create_progress_channel() -> (
+    tokio::sync::mpsc::UnboundedSender<ProgressUpdate>,
+    tokio::sync::mpsc::UnboundedReceiver<ProgressUpdate>,
+) {
     tokio::sync::mpsc::unbounded_channel()
 }

@@ -1,11 +1,11 @@
 //! Dataset management system for pipeline outputs and market data
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 pub mod manager;
 pub mod selection;
@@ -170,13 +170,22 @@ pub struct SchemaInfo {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DatasetType {
     /// Pipeline output (contains the pipeline name and version)
-    Pipeline { name: String, version: Option<String> },
+    Pipeline {
+        name: String,
+        version: Option<String>,
+    },
     /// Output from fetch-all-markets command
     MarketData { source: DataSource },
     /// Output from analyze command (filtered markets)
-    AnalyzedMarkets { source_dataset: String, filter_count: Option<usize> },
+    AnalyzedMarkets {
+        source_dataset: String,
+        filter_count: Option<usize>,
+    },
     /// Output from enrich command (enriched with real-time data)
-    EnrichedMarkets { source_dataset: String, enrichment_types: Vec<EnrichmentType> },
+    EnrichedMarkets {
+        source_dataset: String,
+        enrichment_types: Vec<EnrichmentType>,
+    },
     /// User-created token selections
     TokenSelection { name: String, token_count: usize },
     /// Mixed dataset with multiple command outputs
@@ -377,38 +386,48 @@ impl DatasetType {
                 } else {
                     format!("Pipeline: {}", name)
                 }
-            },
+            }
             DatasetType::MarketData { source } => {
                 format!("Market Data ({})", source.display_name())
-            },
-            DatasetType::AnalyzedMarkets { source_dataset, filter_count } => {
+            }
+            DatasetType::AnalyzedMarkets {
+                source_dataset,
+                filter_count,
+            } => {
                 if let Some(count) = filter_count {
-                    format!("Analyzed Markets from {} ({} filters)", source_dataset, count)
+                    format!(
+                        "Analyzed Markets from {} ({} filters)",
+                        source_dataset, count
+                    )
                 } else {
                     format!("Analyzed Markets from {}", source_dataset)
                 }
-            },
-            DatasetType::EnrichedMarkets { source_dataset, enrichment_types } => {
+            }
+            DatasetType::EnrichedMarkets {
+                source_dataset,
+                enrichment_types,
+            } => {
                 if enrichment_types.is_empty() {
                     format!("Enriched Markets from {}", source_dataset)
                 } else {
-                    let types = enrichment_types.iter()
+                    let types = enrichment_types
+                        .iter()
                         .map(|t| t.display_name())
                         .collect::<Vec<_>>()
                         .join(", ");
                     format!("Enriched Markets from {} ({})", source_dataset, types)
                 }
-            },
+            }
             DatasetType::TokenSelection { name, token_count } => {
                 format!("Token Selection: {} ({} tokens)", name, token_count)
-            },
+            }
             DatasetType::Mixed { components } => {
                 if components.is_empty() {
                     "Mixed Output".to_string()
                 } else {
                     format!("Mixed ({})", components.join(", "))
                 }
-            },
+            }
             DatasetType::Unknown => "Unknown".to_string(),
         }
     }
@@ -427,91 +446,98 @@ impl DatasetType {
     }
 
     /// Infer dataset type from directory analysis with enhanced detection
-    pub fn from_dir_analysis(name: &str, files: &[FileInfo], metadata: Option<&DatasetMetadata>) -> Self {
+    pub fn from_dir_analysis(
+        name: &str,
+        files: &[FileInfo],
+        metadata: Option<&DatasetMetadata>,
+    ) -> Self {
         // If we have metadata, use it
         if let Some(meta) = metadata {
             return Self::from_metadata(meta);
         }
-        
+
         // Detect patterns in files
         let mut has_market_chunks = false;
         let mut has_state_files = false;
         let mut has_analysis_results = false;
         let mut has_enrichment_data = false;
         let source_dataset = None;
-        
+
         for file in files {
             match &file.file_type {
-                FileType::Json { subtype } => {
-                    match subtype {
-                        JsonSubtype::MarketChunk => has_market_chunks = true,
-                        JsonSubtype::State => has_state_files = true,
-                        JsonSubtype::AnalysisResults => has_analysis_results = true,
-                        _ => {}
-                    }
+                FileType::Json { subtype } => match subtype {
+                    JsonSubtype::MarketChunk => has_market_chunks = true,
+                    JsonSubtype::State => has_state_files = true,
+                    JsonSubtype::AnalysisResults => has_analysis_results = true,
+                    _ => {}
                 },
                 _ => {}
             }
-            
+
             if file.name.contains("enriched") {
                 has_enrichment_data = true;
             }
-            
+
             // Try to extract source dataset from config files
             if file.name == "dataset.yaml" || file.name == "analysis_config.yaml" {
                 // Could parse config to get source dataset
             }
         }
-        
+
         // Determine dataset type based on evidence
         if name.contains("pipeline") {
             let pipeline_name = extract_pipeline_name(name);
-            return DatasetType::Pipeline { 
-                name: pipeline_name, 
-                version: None 
+            return DatasetType::Pipeline {
+                name: pipeline_name,
+                version: None,
             };
         }
-        
+
         if has_enrichment_data {
             return DatasetType::EnrichedMarkets {
                 source_dataset: source_dataset.unwrap_or_else(|| "unknown".to_string()),
                 enrichment_types: detect_enrichment_types(files),
             };
         }
-        
+
         if has_analysis_results {
             return DatasetType::AnalyzedMarkets {
                 source_dataset: source_dataset.unwrap_or_else(|| "unknown".to_string()),
                 filter_count: None,
             };
         }
-        
+
         if has_market_chunks || has_state_files {
             return DatasetType::MarketData {
                 source: detect_data_source(files),
             };
         }
-        
+
         DatasetType::Unknown
     }
-    
+
     /// Create dataset type from metadata
     fn from_metadata(metadata: &DatasetMetadata) -> Self {
         match metadata.dataset_type.as_str() {
-            "MarketData" => DatasetType::MarketData { source: DataSource::Unknown },
+            "MarketData" => DatasetType::MarketData {
+                source: DataSource::Unknown,
+            },
             "AnalyzedMarkets" => DatasetType::AnalyzedMarkets {
-                source_dataset: metadata.additional_info
+                source_dataset: metadata
+                    .additional_info
                     .get("source_dataset")
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown")
                     .to_string(),
-                filter_count: metadata.additional_info
+                filter_count: metadata
+                    .additional_info
                     .get("filter_count")
                     .and_then(|v| v.as_u64())
                     .map(|n| n as usize),
             },
             "EnrichedMarkets" => DatasetType::EnrichedMarkets {
-                source_dataset: metadata.additional_info
+                source_dataset: metadata
+                    .additional_info
                     .get("source_dataset")
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown")
@@ -519,12 +545,14 @@ impl DatasetType {
                 enrichment_types: Vec::new(), // Could be extracted from metadata
             },
             "Pipeline" => DatasetType::Pipeline {
-                name: metadata.additional_info
+                name: metadata
+                    .additional_info
                     .get("pipeline_name")
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown")
                     .to_string(),
-                version: metadata.additional_info
+                version: metadata
+                    .additional_info
                     .get("pipeline_version")
                     .and_then(|v| v.as_str())
                     .map(String::from),
@@ -538,7 +566,7 @@ impl DataSource {
     pub fn display_name(&self) -> &'static str {
         match self {
             DataSource::ClobApi => "CLOB API",
-            DataSource::GammaApi => "Gamma API", 
+            DataSource::GammaApi => "Gamma API",
             DataSource::Mixed => "Mixed Sources",
             DataSource::Unknown => "Unknown",
         }
@@ -565,7 +593,7 @@ impl FileType {
             .extension()
             .and_then(|ext| ext.to_str())
             .unwrap_or("");
-        
+
         match extension.to_lowercase().as_str() {
             "json" => {
                 let subtype = if name.contains("chunk") {
@@ -582,7 +610,7 @@ impl FileType {
                     JsonSubtype::Data
                 };
                 FileType::Json { subtype }
-            },
+            }
             "yaml" | "yml" => {
                 let purpose = if name == "dataset.yaml" {
                     YamlPurpose::DatasetMetadata
@@ -596,22 +624,43 @@ impl FileType {
                     YamlPurpose::Configuration
                 };
                 FileType::Yaml { purpose }
+            }
+            "log" => FileType::Log {
+                level: LogLevel::Mixed,
             },
-            "log" => FileType::Log { level: LogLevel::Mixed },
-            "parquet" => FileType::Binary { format: BinaryFormat::Parquet },
-            "db" | "sqlite" | "sqlite3" => FileType::Binary { format: BinaryFormat::SQLite },
-            "csv" => FileType::Text { format: TextFormat::Csv },
-            "tsv" => FileType::Text { format: TextFormat::Tsv },
-            "md" => FileType::Text { format: TextFormat::Markdown },
-            "txt" => FileType::Text { format: TextFormat::Plain },
-            "zip" => FileType::Archive { format: ArchiveFormat::Zip },
-            "gz" => FileType::Archive { format: ArchiveFormat::Gzip },
-            "tar" => FileType::Archive { format: ArchiveFormat::Tar },
-            "7z" => FileType::Archive { format: ArchiveFormat::SevenZip },
+            "parquet" => FileType::Binary {
+                format: BinaryFormat::Parquet,
+            },
+            "db" | "sqlite" | "sqlite3" => FileType::Binary {
+                format: BinaryFormat::SQLite,
+            },
+            "csv" => FileType::Text {
+                format: TextFormat::Csv,
+            },
+            "tsv" => FileType::Text {
+                format: TextFormat::Tsv,
+            },
+            "md" => FileType::Text {
+                format: TextFormat::Markdown,
+            },
+            "txt" => FileType::Text {
+                format: TextFormat::Plain,
+            },
+            "zip" => FileType::Archive {
+                format: ArchiveFormat::Zip,
+            },
+            "gz" => FileType::Archive {
+                format: ArchiveFormat::Gzip,
+            },
+            "tar" => FileType::Archive {
+                format: ArchiveFormat::Tar,
+            },
+            "7z" => FileType::Archive {
+                format: ArchiveFormat::SevenZip,
+            },
             _ => FileType::Unknown,
         }
     }
-
 
     /// Get an icon for the file type
     pub fn icon(&self) -> &'static str {
@@ -627,12 +676,6 @@ impl FileType {
     }
 }
 
-
-
-
-
-
-
 impl DatasetInfo {
     /// Format the dataset size in human-readable form
     pub fn formatted_size(&self) -> String {
@@ -644,7 +687,7 @@ impl DatasetInfo {
         if let Some(created_at) = &self.created_at {
             let now = Utc::now();
             let duration = now.signed_duration_since(*created_at);
-            
+
             if duration.num_days() > 0 {
                 format!("{} days ago", duration.num_days())
             } else if duration.num_hours() > 0 {
@@ -674,12 +717,11 @@ impl DatasetInfo {
         match self.health_status {
             DatasetHealthStatus::Healthy => "✅",
             DatasetHealthStatus::Warning => "⚠️",
-            DatasetHealthStatus::Corrupted => "❌", 
+            DatasetHealthStatus::Corrupted => "❌",
             DatasetHealthStatus::Incomplete => "🔄",
             DatasetHealthStatus::Empty => "📭",
         }
     }
-    
 }
 
 /// Format bytes in human-readable form with enhanced precision
@@ -718,7 +760,8 @@ pub fn save_command_metadata(
     additional_info: Option<HashMap<String, serde_json::Value>>,
 ) -> Result<()> {
     let metadata = DatasetMetadata {
-        name: dataset_path.file_name()
+        name: dataset_path
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown")
             .to_string(),
@@ -733,13 +776,12 @@ pub fn save_command_metadata(
         created_at: Utc::now(),
         additional_info: additional_info.unwrap_or_default(),
     };
-    
-    let yaml_content = serde_yaml::to_string(&metadata)
-        .context("Failed to serialize dataset metadata to YAML")?;
+
+    let yaml_content =
+        serde_yaml::to_string(&metadata).context("Failed to serialize dataset metadata to YAML")?;
     let metadata_path = dataset_path.join("dataset.yaml");
-    fs::write(&metadata_path, yaml_content)
-        .context("Failed to write dataset metadata file")?;
-    
+    fs::write(&metadata_path, yaml_content).context("Failed to write dataset metadata file")?;
+
     Ok(())
 }
 
@@ -777,10 +819,12 @@ pub struct CommandInfo {
 /// Load dataset metadata from a YAML file with enhanced error handling
 pub fn load_dataset_metadata(dataset_path: &Path) -> Result<DatasetMetadata> {
     let metadata_path = dataset_path.join("dataset.yaml");
-    let content = fs::read_to_string(&metadata_path)
-        .context(format!("Failed to read metadata file: {}", metadata_path.display()))?;
-    let metadata: DatasetMetadata = serde_yaml::from_str(&content)
-        .context("Failed to parse dataset metadata YAML")?;
+    let content = fs::read_to_string(&metadata_path).context(format!(
+        "Failed to read metadata file: {}",
+        metadata_path.display()
+    ))?;
+    let metadata: DatasetMetadata =
+        serde_yaml::from_str(&content).context("Failed to parse dataset metadata YAML")?;
     Ok(metadata)
 }
 
@@ -795,7 +839,7 @@ fn extract_pipeline_name(dir_name: &str) -> String {
 
 fn detect_enrichment_types(files: &[FileInfo]) -> Vec<EnrichmentType> {
     let mut types = Vec::new();
-    
+
     for file in files {
         if file.name.contains("orderbook") {
             types.push(EnrichmentType::Orderbook);
@@ -807,7 +851,7 @@ fn detect_enrichment_types(files: &[FileInfo]) -> Vec<EnrichmentType> {
             types.push(EnrichmentType::Volume);
         }
     }
-    
+
     types.sort();
     types.dedup();
     types
@@ -816,7 +860,7 @@ fn detect_enrichment_types(files: &[FileInfo]) -> Vec<EnrichmentType> {
 fn detect_data_source(files: &[FileInfo]) -> DataSource {
     let mut has_clob_indicators = false;
     let mut has_gamma_indicators = false;
-    
+
     for file in files {
         if file.name.contains("clob") {
             has_clob_indicators = true;
@@ -825,7 +869,7 @@ fn detect_data_source(files: &[FileInfo]) -> DataSource {
             has_gamma_indicators = true;
         }
     }
-    
+
     match (has_clob_indicators, has_gamma_indicators) {
         (true, true) => DataSource::Mixed,
         (true, false) => DataSource::ClobApi,
@@ -842,4 +886,4 @@ fn infer_dataset_type_from_command(command: &str) -> String {
         "pipeline" => "Pipeline".to_string(),
         _ => "Unknown".to_string(),
     }
-} 
+}

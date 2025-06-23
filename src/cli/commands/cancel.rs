@@ -1,14 +1,14 @@
+use crate::data_paths::DataPaths;
 use anyhow::{Result, anyhow};
 use clap::Args;
 use tracing::{info, warn};
-use crate::data_paths::DataPaths;
 use crate::portfolio::command_handlers::enhanced_cancel_command;
 
 #[derive(Args, Clone)]
 pub struct CancelArgs {
     /// Order ID
     pub order_id: String,
-    
+
     /// Confirm cancellation (required unless RUST_ENV=production)
     #[arg(long)]
     pub yes: bool,
@@ -41,4 +41,4 @@ impl CancelCommand {
         
         Ok(())
     }
-} 
+}

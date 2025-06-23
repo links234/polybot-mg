@@ -1,14 +1,17 @@
 //! Dataset manager for scanning and managing pipeline outputs
 
-use super::{DatasetInfo, DatasetType, FileInfo, FileType, format_bytes, DatasetCommandInfo, load_dataset_metadata};
-use crate::data_paths::{DEFAULT_DATASETS_DIR, DEFAULT_RUNS_DIR, DATASETS_DIR, RUNS_DIR};
-use anyhow::{Result, Context};
+use super::{
+    format_bytes, load_dataset_metadata, DatasetCommandInfo, DatasetInfo, DatasetType, FileInfo,
+    FileType,
+};
+use crate::data_paths::{DATASETS_DIR, DEFAULT_DATASETS_DIR, DEFAULT_RUNS_DIR, RUNS_DIR};
+use anyhow::{Context, Result};
 use chrono::{DateTime, Local};
+use serde_json;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use tracing::{debug, warn, info};
-use serde_json;
+use tracing::{debug, info, warn};
 
 /// Configuration for dataset scanning
 #[derive(Debug, Clone)]
@@ -60,7 +63,6 @@ impl DatasetManager {
         }
     }
 
-
     /// Scan for datasets in the configured directories
     pub fn scan_datasets(&mut self) -> Result<()> {
         info!("Scanning for datasets...");
@@ -81,14 +83,13 @@ impl DatasetManager {
         }
 
         // Sort datasets by creation time (newest first)
-        self.datasets.sort_by(|a, b| {
-            match (a.created_at, b.created_at) {
+        self.datasets
+            .sort_by(|a, b| match (a.created_at, b.created_at) {
                 (Some(a_time), Some(b_time)) => b_time.cmp(&a_time),
                 (Some(_), None) => std::cmp::Ordering::Less,
                 (None, Some(_)) => std::cmp::Ordering::Greater,
                 (None, None) => a.name.cmp(&b.name),
-            }
-        });
+            });
 
         self.last_scan = Some(Local::now());
         info!("Found {} datasets", self.datasets.len());
@@ -100,7 +101,7 @@ impl DatasetManager {
         // Clone config values to avoid borrowing issues
         let max_depth = self.config.max_depth;
         let recursive = self.config.recursive;
-        
+
         if depth >= max_depth {
             return Ok(());
         }
@@ -115,9 +116,7 @@ impl DatasetManager {
             let path = entry.path();
 
             if path.is_dir() {
-                let dir_name = path.file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("");
+                let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
                 // Check if this looks like a dataset directory
                 if self.is_dataset_directory(&path, dir_name) {
@@ -160,9 +159,15 @@ impl DatasetManager {
         }
 
         // Third priority: check for pipeline output patterns
-        if name.contains("pipeline") || name.contains("analysis") || name.contains("fetch") 
-            || name.contains("monitor") || name.contains("market") || name.contains("data") 
-            || name.contains("results") || name.contains("enriched") {
+        if name.contains("pipeline")
+            || name.contains("analysis")
+            || name.contains("fetch")
+            || name.contains("monitor")
+            || name.contains("market")
+            || name.contains("data")
+            || name.contains("results")
+            || name.contains("enriched")
+        {
             return self.has_data_files(path);
         }
 
@@ -188,8 +193,13 @@ impl DatasetManager {
         if let Ok(entries) = fs::read_dir(path) {
             for entry in entries.filter_map(|e| e.ok()) {
                 if let Some(name) = entry.file_name().to_str() {
-                    if name.ends_with(".json") || name.ends_with(".csv") || name.ends_with(".parquet") 
-                        || name.contains("chunk") || name.contains("data") || name.contains("markets") {
+                    if name.ends_with(".json")
+                        || name.ends_with(".csv")
+                        || name.ends_with(".parquet")
+                        || name.contains("chunk")
+                        || name.contains("data")
+                        || name.contains("markets")
+                    {
                         return true;
                     }
                 }
@@ -202,25 +212,34 @@ impl DatasetManager {
     fn has_dataset_structure(&self, path: &Path) -> bool {
         let mut has_data = false;
         let mut has_metadata = false;
-        
+
         if let Ok(entries) = fs::read_dir(path) {
             for entry in entries.filter_map(|e| e.ok()) {
                 if let Some(name) = entry.file_name().to_str() {
                     // Check for data files
-                    if name.ends_with(".json") || name.ends_with(".csv") || name.contains("chunk") 
-                        || name.contains("data") || name.contains("markets") || name.contains("results") {
+                    if name.ends_with(".json")
+                        || name.ends_with(".csv")
+                        || name.contains("chunk")
+                        || name.contains("data")
+                        || name.contains("markets")
+                        || name.contains("results")
+                    {
                         has_data = true;
                     }
-                    
+
                     // Check for metadata files (any format)
-                    if name.contains("metadata") || name.contains("info") || name.contains("config")
-                        || name.ends_with(".yaml") || name.ends_with(".yml") {
+                    if name.contains("metadata")
+                        || name.contains("info")
+                        || name.contains("config")
+                        || name.ends_with(".yaml")
+                        || name.ends_with(".yml")
+                    {
                         has_metadata = true;
                     }
                 }
             }
         }
-        
+
         // A dataset should have both data and some form of metadata/info
         has_data && (has_metadata || self.has_recognizable_data_pattern(path))
     }
@@ -237,7 +256,8 @@ impl DatasetManager {
 
     /// Analyze a dataset directory and create DatasetInfo
     fn analyze_dataset(&self, path: &Path) -> Result<DatasetInfo> {
-        let name = path.file_name()
+        let name = path
+            .file_name()
             .and_then(|n| n.to_str())
             .ok_or_else(|| anyhow::anyhow!("Invalid directory name"))?
             .to_string();
@@ -251,24 +271,27 @@ impl DatasetManager {
         if let Ok(entries) = fs::read_dir(path) {
             for entry in entries.filter_map(|e| e.ok()) {
                 let file_path = entry.path();
-                
+
                 if file_path.is_file() {
                     match self.analyze_file(&file_path) {
                         Ok(file_info) => {
                             total_size += file_info.size_bytes;
-                            
+
                             // Use the oldest file time as dataset creation time
                             if let Some(file_time) = file_info.modified_at {
                                 if created_at.is_none() || created_at.unwrap() > file_time {
                                     created_at = Some(file_time);
                                 }
                             }
-                            
+
                             files.push(file_info);
                         }
                         Err(e) => {
-                            warnings.push(format!("Failed to analyze file {}: {}", 
-                                file_path.display(), e));
+                            warnings.push(format!(
+                                "Failed to analyze file {}: {}",
+                                file_path.display(),
+                                e
+                            ));
                         }
                     }
                 }
@@ -281,21 +304,25 @@ impl DatasetManager {
         // Use the new generic detection system
         let dataset_type = DatasetType::from_dir_analysis(&name, &files, None);
         let command_info = self.analyze_commands(&path, &name, &files);
-        let is_complete = self.check_dataset_completeness_generic(&command_info, &files, &mut warnings);
+        let is_complete =
+            self.check_dataset_completeness_generic(&command_info, &files, &mut warnings);
 
         // Convert string warnings to DatasetWarning structs
-        use super::{DatasetWarning, WarningCategory, WarningSeverity, DatasetHealthStatus, DatasetMetrics};
+        use super::{
+            DatasetHealthStatus, DatasetMetrics, DatasetWarning, WarningCategory, WarningSeverity,
+        };
         use chrono::Utc;
-        
-        let dataset_warnings: Vec<DatasetWarning> = warnings.into_iter().map(|msg| {
-            DatasetWarning {
+
+        let dataset_warnings: Vec<DatasetWarning> = warnings
+            .into_iter()
+            .map(|msg| DatasetWarning {
                 category: WarningCategory::InconsistentMetadata,
                 message: msg,
                 affected_file: None,
                 detected_at: Utc::now(),
                 severity: WarningSeverity::Warning,
-            }
-        }).collect();
+            })
+            .collect();
 
         // Determine health status based on completeness and warnings
         let health_status = if !is_complete {
@@ -307,7 +334,8 @@ impl DatasetManager {
         };
 
         // Find the most recent modification time
-        let modified_at = files.iter()
+        let modified_at = files
+            .iter()
             .filter_map(|f| f.modified_at)
             .max()
             .map(|local_time| local_time.with_timezone(&Utc));
@@ -330,7 +358,8 @@ impl DatasetManager {
 
     /// Analyze a single file and create FileInfo
     fn analyze_file(&self, path: &Path) -> Result<FileInfo> {
-        let name = path.file_name()
+        let name = path
+            .file_name()
             .and_then(|n| n.to_str())
             .ok_or_else(|| anyhow::anyhow!("Invalid file name"))?
             .to_string();
@@ -340,8 +369,9 @@ impl DatasetManager {
 
         let size_bytes = metadata.len();
         let file_type = FileType::from_filename_and_content(&name, None);
-        
-        let modified_at = metadata.modified()
+
+        let modified_at = metadata
+            .modified()
             .ok()
             .map(|system_time| DateTime::<Local>::from(system_time))
             .map(|local_time| local_time.with_timezone(&chrono::Utc));
@@ -360,7 +390,12 @@ impl DatasetManager {
     }
 
     /// Analyze which CLI commands likely produced this dataset
-    fn analyze_commands(&self, dir_path: &Path, dir_name: &str, files: &[FileInfo]) -> DatasetCommandInfo {
+    fn analyze_commands(
+        &self,
+        dir_path: &Path,
+        dir_name: &str,
+        files: &[FileInfo],
+    ) -> DatasetCommandInfo {
         let mut detected_commands = Vec::new();
         let mut evidence = HashMap::new();
         let mut confidence_scores = Vec::new();
@@ -369,36 +404,43 @@ impl DatasetManager {
         if let Ok(metadata) = load_dataset_metadata(dir_path) {
             let command = metadata.command_info.command.clone();
             detected_commands.push(command.clone());
-            
+
             let mut cmd_evidence = vec![
                 "Found dataset.yaml metadata file".to_string(),
                 format!("Command: {}", command),
                 format!("Version: {}", metadata.command_info.version),
-                format!("Executed at: {}", metadata.command_info.executed_at.format("%Y-%m-%d %H:%M:%S UTC")),
+                format!(
+                    "Executed at: {}",
+                    metadata
+                        .command_info
+                        .executed_at
+                        .format("%Y-%m-%d %H:%M:%S UTC")
+                ),
             ];
-            
+
             if !metadata.command_info.args.is_empty() {
                 cmd_evidence.push(format!("Args: {}", metadata.command_info.args.join(" ")));
             }
-            
+
             if !metadata.description.is_empty() {
                 cmd_evidence.push(format!("Description: {}", metadata.description));
             }
-            
+
             evidence.insert(command, cmd_evidence);
             confidence_scores.push(1.0); // Perfect confidence for YAML metadata
-            
+
             // Return early with perfect confidence
             use super::DetectedCommand;
-            let detected_commands: Vec<DetectedCommand> = detected_commands.into_iter().map(|cmd| {
-                DetectedCommand {
+            let detected_commands: Vec<DetectedCommand> = detected_commands
+                .into_iter()
+                .map(|cmd| DetectedCommand {
                     command: cmd.clone(),
                     args: Vec::new(),
                     confidence: 1.0,
                     evidence: evidence.get(&cmd).cloned().unwrap_or_default(),
-                }
-            }).collect();
-            
+                })
+                .collect();
+
             return DatasetCommandInfo {
                 primary_command: detected_commands.first().map(|cmd| cmd.command.clone()),
                 detected_commands,
@@ -412,37 +454,42 @@ impl DatasetManager {
         if let Ok(metadata) = self.load_legacy_command_metadata(dir_path) {
             if let Some(command) = metadata.get("command").and_then(|v| v.as_str()) {
                 detected_commands.push(command.to_string());
-                
+
                 let mut cmd_evidence = vec![
                     "Found legacy .command_info.json metadata file".to_string(),
                     format!("Command: {}", command),
                 ];
-                
+
                 if let Some(args) = metadata.get("args").and_then(|v| v.as_array()) {
-                    cmd_evidence.push(format!("Args: {}", args.iter()
-                        .filter_map(|v| v.as_str())
-                        .collect::<Vec<_>>()
-                        .join(" ")));
+                    cmd_evidence.push(format!(
+                        "Args: {}",
+                        args.iter()
+                            .filter_map(|v| v.as_str())
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    ));
                 }
-                
+
                 if let Some(executed_at) = metadata.get("executed_at").and_then(|v| v.as_str()) {
                     cmd_evidence.push(format!("Executed at: {}", executed_at));
                 }
-                
+
                 evidence.insert(command.to_string(), cmd_evidence);
                 confidence_scores.push(0.95); // High confidence for legacy metadata
-                
+
                 // Return early with high confidence
-                let confidence = confidence_scores.iter().sum::<f32>() / confidence_scores.len() as f32;
-                let detected_commands: Vec<super::DetectedCommand> = detected_commands.into_iter().map(|cmd| {
-                    super::DetectedCommand {
+                let confidence =
+                    confidence_scores.iter().sum::<f32>() / confidence_scores.len() as f32;
+                let detected_commands: Vec<super::DetectedCommand> = detected_commands
+                    .into_iter()
+                    .map(|cmd| super::DetectedCommand {
                         command: cmd.clone(),
                         args: Vec::new(),
                         confidence: 0.95,
                         evidence: evidence.get(&cmd).cloned().unwrap_or_default(),
-                    }
-                }).collect();
-                
+                    })
+                    .collect();
+
                 return DatasetCommandInfo {
                     primary_command: detected_commands.first().map(|cmd| cmd.command.clone()),
                     detected_commands,
@@ -456,7 +503,7 @@ impl DatasetManager {
         // Fall back to heuristic detection if no metadata files found
         self.analyze_commands_heuristic(dir_name, files)
     }
-    
+
     /// Heuristic command detection based on file patterns and directory names
     fn analyze_commands_heuristic(&self, dir_name: &str, files: &[FileInfo]) -> DatasetCommandInfo {
         let mut detected_commands = Vec::new();
@@ -466,10 +513,21 @@ impl DatasetManager {
         // Check for fetch-all-markets command evidence
         let mut fetch_evidence = Vec::new();
         for file in files {
-            if matches!(file.file_type, FileType::Json { subtype: super::JsonSubtype::MarketChunk }) {
+            if matches!(
+                file.file_type,
+                FileType::Json {
+                    subtype: super::JsonSubtype::MarketChunk
+                }
+            ) {
                 fetch_evidence.push(format!("Market chunk file: {}", file.name));
             }
-            if matches!(file.file_type, FileType::Json { subtype: super::JsonSubtype::State }) && (file.name.contains("fetch") || file.name.contains("state")) {
+            if matches!(
+                file.file_type,
+                FileType::Json {
+                    subtype: super::JsonSubtype::State
+                }
+            ) && (file.name.contains("fetch") || file.name.contains("state"))
+            {
                 fetch_evidence.push(format!("Fetch state file: {}", file.name));
             }
         }
@@ -507,7 +565,8 @@ impl DatasetManager {
 
         // Check for pipeline command evidence
         if dir_name.contains("pipeline") || files.iter().any(|f| f.name.contains("pipeline")) {
-            let mut pipeline_evidence = vec![format!("Directory name suggests pipeline: {}", dir_name)];
+            let mut pipeline_evidence =
+                vec![format!("Directory name suggests pipeline: {}", dir_name)];
             for file in files {
                 if file.name.contains("pipeline") {
                     pipeline_evidence.push(format!("Pipeline-related file: {}", file.name));
@@ -525,14 +584,15 @@ impl DatasetManager {
             confidence_scores.iter().sum::<f32>() / confidence_scores.len() as f32
         };
 
-        let detected_commands: Vec<super::DetectedCommand> = detected_commands.into_iter().map(|cmd| {
-            super::DetectedCommand {
+        let detected_commands: Vec<super::DetectedCommand> = detected_commands
+            .into_iter()
+            .map(|cmd| super::DetectedCommand {
                 command: cmd.clone(),
                 args: Vec::new(),
                 confidence: confidence as f64,
                 evidence: evidence.get(&cmd).cloned().unwrap_or_default(),
-            }
-        }).collect();
+            })
+            .collect();
 
         DatasetCommandInfo {
             primary_command: detected_commands.first().map(|cmd| cmd.command.clone()),
@@ -542,7 +602,7 @@ impl DatasetManager {
             execution_context: None,
         }
     }
-    
+
     /// Load legacy command metadata from a dataset directory
     fn load_legacy_command_metadata(&self, dataset_path: &Path) -> Result<serde_json::Value> {
         let metadata_path = dataset_path.join(".command_info.json");
@@ -552,7 +612,12 @@ impl DatasetManager {
     }
 
     /// Check if a dataset appears to be complete based on detected commands
-    fn check_dataset_completeness_generic(&self, command_info: &DatasetCommandInfo, files: &[FileInfo], warnings: &mut Vec<String>) -> bool {
+    fn check_dataset_completeness_generic(
+        &self,
+        command_info: &DatasetCommandInfo,
+        files: &[FileInfo],
+        warnings: &mut Vec<String>,
+    ) -> bool {
         if command_info.detected_commands.is_empty() {
             warnings.push("No recognizable CLI commands detected".to_string());
             return !files.is_empty(); // At least has some files
@@ -563,25 +628,42 @@ impl DatasetManager {
         for command in &command_info.detected_commands {
             match command.command.as_str() {
                 "fetch-all-markets" => {
-                    let has_chunks = files.iter().any(|f| matches!(f.file_type, FileType::Json { subtype: super::JsonSubtype::MarketChunk }));
-                    let has_state = files.iter().any(|f| matches!(f.file_type, FileType::Json { subtype: super::JsonSubtype::State }));
-                    
+                    let has_chunks = files.iter().any(|f| {
+                        matches!(
+                            f.file_type,
+                            FileType::Json {
+                                subtype: super::JsonSubtype::MarketChunk
+                            }
+                        )
+                    });
+                    let has_state = files.iter().any(|f| {
+                        matches!(
+                            f.file_type,
+                            FileType::Json {
+                                subtype: super::JsonSubtype::State
+                            }
+                        )
+                    });
+
                     if !has_chunks && !has_state {
                         warnings.push("fetch-all-markets: Missing market data files".to_string());
                         all_complete = false;
                     }
                 }
                 "analyze" => {
-                    let has_filtered = files.iter().any(|f| f.name.contains("filtered") || f.name.contains("analyzed"));
-                    
+                    let has_filtered = files
+                        .iter()
+                        .any(|f| f.name.contains("filtered") || f.name.contains("analyzed"));
+
                     if !has_filtered {
-                        warnings.push("analyze: Missing filtered/analyzed output files".to_string());
+                        warnings
+                            .push("analyze: Missing filtered/analyzed output files".to_string());
                         all_complete = false;
                     }
                 }
                 "enrich" => {
                     let has_enriched = files.iter().any(|f| f.name.contains("enriched"));
-                    
+
                     if !has_enriched {
                         warnings.push("enrich: Missing enriched output files".to_string());
                         all_complete = false;
@@ -589,18 +671,25 @@ impl DatasetManager {
                 }
                 "pipeline" => {
                     // For pipelines, expect to see evidence of multiple commands
-                    let sub_commands: Vec<_> = command_info.detected_commands.iter()
+                    let sub_commands: Vec<_> = command_info
+                        .detected_commands
+                        .iter()
                         .filter(|cmd| cmd.command != "pipeline")
                         .collect();
-                    
+
                     if sub_commands.is_empty() {
-                        warnings.push("pipeline: No sub-commands detected in pipeline output".to_string());
+                        warnings.push(
+                            "pipeline: No sub-commands detected in pipeline output".to_string(),
+                        );
                         all_complete = false;
                     }
                 }
                 _ => {
                     // Unknown command, can't validate
-                    warnings.push(format!("Unknown command '{}' - cannot validate completeness", command.command));
+                    warnings.push(format!(
+                        "Unknown command '{}' - cannot validate completeness",
+                        command.command
+                    ));
                 }
             }
         }
@@ -613,20 +702,23 @@ impl DatasetManager {
         &self.datasets
     }
 
-
-
-
     /// Delete a dataset
     pub fn delete_dataset(&mut self, dataset_name: &str) -> Result<()> {
-        let dataset = self.datasets.iter()
+        let dataset = self
+            .datasets
+            .iter()
             .find(|d| d.name == dataset_name)
             .ok_or_else(|| anyhow::anyhow!("Dataset not found: {}", dataset_name))?;
 
         info!("Deleting dataset: {}", dataset.name);
-        
+
         // Remove the directory and all its contents
-        fs::remove_dir_all(&dataset.path)
-            .with_context(|| format!("Failed to delete dataset directory: {}", dataset.path.display()))?;
+        fs::remove_dir_all(&dataset.path).with_context(|| {
+            format!(
+                "Failed to delete dataset directory: {}",
+                dataset.path.display()
+            )
+        })?;
 
         // Remove from our list
         self.datasets.retain(|d| d.name != dataset_name);
@@ -648,7 +740,10 @@ impl DatasetManager {
         }
 
         if !errors.is_empty() {
-            return Err(anyhow::anyhow!("Failed to delete some datasets: {}", errors.join(", ")));
+            return Err(anyhow::anyhow!(
+                "Failed to delete some datasets: {}",
+                errors.join(", ")
+            ));
         }
 
         Ok(deleted)
@@ -665,7 +760,7 @@ impl DatasetManager {
             *type_counts.entry(dataset.dataset_type.clone()).or_insert(0) += 1;
             total_size += dataset.size_bytes;
             total_files += dataset.file_count;
-            
+
             if dataset.is_today() {
                 today_count += 1;
             }
@@ -698,4 +793,4 @@ impl DatasetSummary {
     pub fn formatted_total_size(&self) -> String {
         format_bytes(self.total_size_bytes)
     }
-} 
+}

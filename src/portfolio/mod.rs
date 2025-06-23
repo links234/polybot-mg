@@ -4,24 +4,23 @@
 //! real-time data tracking, API integration, and persistent storage.
 
 pub mod manager;
-pub mod types;
 pub mod orders_api;
-pub mod storage;
 pub mod reconciler;
 pub mod service;
-// pub mod api;
-// pub mod cache;
 pub mod command_handlers;
 pub mod display;
+pub mod storage;
+pub mod types;
 
 // Core types
 pub use types::{
     Position, PositionStatus, PortfolioStats, ActiveOrder,
     OrderSide, OrderStatus, MarketPositionSummary, TradeExecution,
+    PositionSide,
 };
 
 // Storage
-// pub use storage::{PortfolioStorage, PortfolioSnapshot, AccountBalances};
+pub use storage::{PortfolioStorage, PortfolioSnapshot, AccountBalances};
 
 // Service
 pub use service::{
@@ -29,12 +28,8 @@ pub use service::{
     start_portfolio_service,
 };
 
-// API integration
-// pub use api::{PortfolioApiClient, ApiTrade, ApiPosition};
-// pub use orders_api::{PolymarketOrder, BalanceInfo};
-
-// Cache
-// pub use cache::PortfolioCache;
+// Reconciler
+pub use reconciler::PositionReconciler;
 
 // Command handlers
 pub use command_handlers::{
@@ -46,6 +41,3 @@ pub use display::{
     TradesFormatter,
     DashboardFormatter,
 };
-
-// Other components
-// pub use reconciler::PositionReconciler;

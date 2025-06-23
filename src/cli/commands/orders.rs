@@ -1,6 +1,6 @@
+use crate::data_paths::DataPaths;
 use anyhow::Result;
 use clap::Args;
-use crate::data_paths::DataPaths;
 use crate::portfolio::command_handlers::PortfolioCommandHandlers;
 use crate::portfolio::display::{OrdersFormatter, DashboardFormatter};
 use tracing::info;
@@ -76,4 +76,4 @@ impl OrdersCommand {
         
         Ok(())
     }
-} 
+}

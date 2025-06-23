@@ -1,16 +1,16 @@
 //! Execution event system with strongly typed events
-//! 
+//!
 //! Defines the unified event model for the execution engine,
 //! supporting both real-time and replay scenarios.
 
-use std::time::{Duration, Instant, SystemTime};
-use serde::{Deserialize, Serialize};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use std::time::{Duration, Instant, SystemTime};
 use tracing::debug;
 
-use crate::execution::orderbook::PriceLevel;
-use crate::ws::{PolyEvent, Side, OrderStatus};
 use super::config::AssetId;
+use crate::execution::orderbook::PriceLevel;
+use crate::ws::{OrderStatus, PolyEvent, Side};
 
 /// Unified execution event that wraps all possible event types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,11 +38,11 @@ impl EventId {
     pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
-    
+
     pub fn _from_string(id: String) -> Self {
         Self(id)
     }
-    
+
     pub fn _as_str(&self) -> &str {
         &self.0
     }
@@ -68,13 +68,9 @@ pub enum EventSource {
         original_timestamp: SystemTime,
     },
     /// Synthetic/simulation data
-    Simulation {
-        generator_id: String,
-    },
+    Simulation { generator_id: String },
     /// Internal system event
-    System {
-        component: String,
-    },
+    System { component: String },
 }
 
 /// WebSocket feed types
@@ -157,10 +153,7 @@ pub enum UserEvent {
         size: Decimal,
     },
     /// Balance update
-    BalanceUpdate {
-        asset_id: AssetId,
-        balance: Decimal,
-    },
+    BalanceUpdate { asset_id: AssetId, balance: Decimal },
 }
 
 /// System control events
@@ -182,10 +175,7 @@ pub enum SystemEvent {
         feed_type: FeedType,
     },
     /// Connection lost
-    ConnectionLost {
-        endpoint: String,
-        error: String,
-    },
+    ConnectionLost { endpoint: String, error: String },
     /// Error occurred
     Error {
         component: String,
@@ -308,7 +298,7 @@ impl ExecutionEvent {
     pub fn market(data: MarketEvent, source: EventSource) -> Self {
         let id = EventId::new();
         debug!(event_id = %id._as_str(), event_type = "market", "Creating market event");
-        
+
         Self {
             id,
             timestamp: SystemTime::now(),
@@ -318,12 +308,12 @@ impl ExecutionEvent {
             metadata: EventMetadata::default(),
         }
     }
-    
+
     /// Create a new user event
     pub fn user(data: UserEvent, source: EventSource) -> Self {
         let id = EventId::new();
         debug!(event_id = %id._as_str(), event_type = "user", "Creating user event");
-        
+
         Self {
             id,
             timestamp: SystemTime::now(),
@@ -333,12 +323,12 @@ impl ExecutionEvent {
             metadata: EventMetadata::default(),
         }
     }
-    
+
     // /// Create a new system event
     // pub fn system(data: SystemEvent, source: EventSource) -> Self {
     //     let id = EventId::new();
     //     info!(event_id = %id._as_str(), event_type = "system", "Creating system event");
-    //     
+    //
     //     Self {
     //         id,
     //         timestamp: SystemTime::now(),
@@ -348,12 +338,12 @@ impl ExecutionEvent {
     //         metadata: EventMetadata::default(),
     //     }
     // }
-    // 
+    //
     // /// Create a new metrics event
     // pub fn metrics(data: MetricsEvent, source: EventSource) -> Self {
     //     let id = EventId::new();
     //     debug!(event_id = %id._as_str(), event_type = "metrics", "Creating metrics event");
-    //     
+    //
     //     Self {
     //         id,
     //         timestamp: SystemTime::now(),
@@ -363,29 +353,29 @@ impl ExecutionEvent {
     //         metadata: EventMetadata::default(),
     //     }
     // }
-    
+
     /// Mark event as processed
     pub fn _mark_processed(&mut self) {
         self._processed_at = Some(Instant::now());
-        
+
         if let Some(start_time) = self._processed_at {
             // This is a placeholder - in real implementation we'd track from creation
             self.metadata.processing_duration = Some(start_time.elapsed());
         }
     }
-    
+
     /// Add a tag to the event
     pub fn _with_tag(mut self, key: String, value: String) -> Self {
         self.metadata.tags.insert(key, value);
         self
     }
-    
+
     /// Set event priority
     pub fn _with_priority(mut self, priority: EventPriority) -> Self {
         self.metadata.priority = priority;
         self
     }
-    
+
     /// Get the asset ID if this is a market event
     pub fn _asset_id(&self) -> Option<&AssetId> {
         match &self.data {
@@ -427,41 +417,58 @@ impl From<PolyEvent> for ExecutionEvent {
             connection_id: "primary".to_string(),
             feed_type: FeedType::Market,
         };
-        
+
         let market_event = match poly_event {
-            PolyEvent::Book { asset_id, bids, asks, hash } => {
-                MarketEvent::OrderBookSnapshot {
-                    asset_id: AssetId::from(asset_id),
-                    bids,
-                    asks,
-                    hash,
-                }
-            }
-            PolyEvent::PriceChange { asset_id, side, price, size, hash } => {
-                MarketEvent::PriceChange {
-                    asset_id: AssetId::from(asset_id),
-                    side,
-                    price,
-                    size,
-                    hash,
-                }
-            }
-            PolyEvent::Trade { asset_id, price, size, side } => {
-                MarketEvent::Trade {
-                    asset_id: AssetId::from(asset_id),
-                    price,
-                    size,
-                    side,
-                    trade_id: None,
-                }
-            }
-            PolyEvent::TickSizeChange { asset_id, tick_size } => {
-                MarketEvent::TickSizeChange {
-                    asset_id: AssetId::from(asset_id),
-                    tick_size,
-                }
-            }
-            PolyEvent::MyOrder { asset_id, side, price, size, status } => {
+            PolyEvent::Book {
+                asset_id,
+                bids,
+                asks,
+                hash,
+            } => MarketEvent::OrderBookSnapshot {
+                asset_id: AssetId::from(asset_id),
+                bids,
+                asks,
+                hash,
+            },
+            PolyEvent::PriceChange {
+                asset_id,
+                side,
+                price,
+                size,
+                hash,
+            } => MarketEvent::PriceChange {
+                asset_id: AssetId::from(asset_id),
+                side,
+                price,
+                size,
+                hash,
+            },
+            PolyEvent::Trade {
+                asset_id,
+                price,
+                size,
+                side,
+            } => MarketEvent::Trade {
+                asset_id: AssetId::from(asset_id),
+                price,
+                size,
+                side,
+                trade_id: None,
+            },
+            PolyEvent::TickSizeChange {
+                asset_id,
+                tick_size,
+            } => MarketEvent::TickSizeChange {
+                asset_id: AssetId::from(asset_id),
+                tick_size,
+            },
+            PolyEvent::MyOrder {
+                asset_id,
+                side,
+                price,
+                size,
+                status,
+            } => {
                 let user_event = UserEvent::OrderUpdate {
                     order_id: "unknown".to_string(), // PolyEvent doesn't have order_id
                     asset_id: AssetId::from(asset_id),
@@ -472,7 +479,12 @@ impl From<PolyEvent> for ExecutionEvent {
                 };
                 return ExecutionEvent::user(user_event, source);
             }
-            PolyEvent::MyTrade { asset_id, side, price, size } => {
+            PolyEvent::MyTrade {
+                asset_id,
+                side,
+                price,
+                size,
+            } => {
                 let user_event = UserEvent::UserTrade {
                     trade_id: "unknown".to_string(),
                     order_id: "unknown".to_string(),
@@ -483,8 +495,23 @@ impl From<PolyEvent> for ExecutionEvent {
                 };
                 return ExecutionEvent::user(user_event, source);
             }
+            PolyEvent::LastTradePrice {
+                asset_id,
+                price,
+                timestamp: _,
+            } => {
+                // Convert LastTradePrice to a Trade event
+                // We don't have size or side information, so we'll use defaults
+                MarketEvent::Trade {
+                    asset_id: AssetId::from(asset_id),
+                    price,
+                    size: Decimal::ZERO, // No size information available
+                    side: Side::Buy,     // Default to Buy since we don't know
+                    trade_id: Some("last_trade".to_string()),
+                }
+            }
         };
-        
+
         ExecutionEvent::market(market_event, source)
     }
 }
@@ -493,10 +520,10 @@ impl From<PolyEvent> for ExecutionEvent {
 // pub trait _EventHandler: Send + Sync {
 //     /// Handle an execution event
 //     fn handle_event(&mut self, event: &ExecutionEvent) -> Result<(), EventHandlerError>;
-//     
+//
 //     /// Get handler name for logging
 //     fn name(&self) -> &str;
-//     
+//
 //     /// Check if handler can process this event type
 //     fn can_handle(&self, event: &ExecutionEvent) -> bool;
 // }
@@ -522,21 +549,21 @@ mod tests {
             side: Side::Buy,
             trade_id: Some("trade_123".to_string()),
         };
-        
+
         let source = EventSource::WebSocket {
             connection_id: "test_connection".to_string(),
             feed_type: FeedType::Market,
         };
-        
+
         let event = ExecutionEvent::market(market_event, source)
             ._with_tag("test".to_string(), "value".to_string())
             ._with_priority(EventPriority::High);
-        
+
         assert_eq!(event.metadata.priority, EventPriority::High);
         assert_eq!(event.metadata.tags.get("test"), Some(&"value".to_string()));
         assert!(event._asset_id().is_some());
     }
-    
+
     #[test]
     fn test_poly_event_conversion() {
         let poly_event = PolyEvent::Trade {
@@ -545,9 +572,9 @@ mod tests {
             size: Decimal::new(100, 0),
             side: Side::Buy,
         };
-        
+
         let exec_event: ExecutionEvent = poly_event.into();
-        
+
         match exec_event.data {
             EventData::Market(MarketEvent::Trade { asset_id, .. }) => {
                 assert_eq!(asset_id.as_str(), "0x123");

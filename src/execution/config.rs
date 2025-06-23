@@ -1,11 +1,11 @@
 //! Execution configuration with strong typing
-//! 
+//!
 //! Defines all configuration structures for the execution engine,
 //! following CLAUDE.md principles of strong typing over primitives.
 
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 
 /// Execution modes supported by the engine
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -43,11 +43,11 @@ impl AssetId {
     pub fn _new(id: String) -> Self {
         Self(id)
     }
-    
+
     pub fn _as_str(&self) -> &str {
         &self.0
     }
-    
+
     pub fn _into_string(self) -> String {
         self.0
     }
@@ -244,7 +244,7 @@ impl ExecutionConfig {
             ..Default::default()
         }
     }
-    
+
     /// Create a new replay configuration
     pub fn _replay(data_path: PathBuf) -> Self {
         Self {
@@ -256,7 +256,7 @@ impl ExecutionConfig {
             ..Default::default()
         }
     }
-    
+
     /// Create a new simulation configuration
     pub fn _simulation(asset_count: usize) -> Self {
         Self {
@@ -267,24 +267,32 @@ impl ExecutionConfig {
             ..Default::default()
         }
     }
-    
+
     /// Enable user feed for real-time mode
     pub fn _with_user_feed(mut self) -> Self {
-        if let ExecutionMode::RealTime { ref mut enable_user_feed, .. } = self.mode {
+        if let ExecutionMode::RealTime {
+            ref mut enable_user_feed,
+            ..
+        } = self.mode
+        {
             *enable_user_feed = true;
         }
         self
     }
-    
+
     /// Set playback speed for replay mode
     pub fn _with_playback_speed(mut self, speed: f64) -> Self {
-        if let ExecutionMode::Replay { ref mut speed_multiplier, .. } = self.mode {
+        if let ExecutionMode::Replay {
+            ref mut speed_multiplier,
+            ..
+        } = self.mode
+        {
             *speed_multiplier = speed;
         }
         self.replay.playback_speed = speed;
         self
     }
-    
+
     /// Disable TUI and enable console output
     pub fn _console_mode(mut self) -> Self {
         self.output.enable_tui = false;
@@ -301,7 +309,7 @@ mod tests {
     fn test_asset_id_creation() {
         let asset = AssetId::_new("0x123abc".to_string());
         assert_eq!(asset._as_str(), "0x123abc");
-        
+
         let asset2 = AssetId::from("0x456def");
         assert_eq!(asset2._as_str(), "0x456def");
     }
@@ -311,14 +319,16 @@ mod tests {
         let config = ExecutionConfig::_real_time(vec![AssetId::from("test")])
             ._with_user_feed()
             ._console_mode();
-        
+
         match config.mode {
-            ExecutionMode::RealTime { enable_user_feed, .. } => {
+            ExecutionMode::RealTime {
+                enable_user_feed, ..
+            } => {
                 assert!(enable_user_feed);
             }
             _ => panic!("Expected RealTime mode"),
         }
-        
+
         assert!(!config.output.enable_tui);
         assert!(config.output.enable_console);
     }

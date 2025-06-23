@@ -7,25 +7,26 @@
 //! their usage patterns, and integration points.
 
 // Command modules
-pub mod init;
-pub mod markets;
+pub mod analyze;
 pub mod book;
 pub mod buy;
-pub mod sell;
 pub mod cancel;
-pub mod orders;
-pub mod portfolio;
-// pub mod portfolio_tui;
-pub mod fetch_all_markets;
-pub mod analyze;
-pub mod enrich;
-pub mod stream;
+pub mod canvas;
 pub mod daemon;
-pub mod pipeline;
 pub mod datasets;
-pub mod install;
-pub mod version;
+pub mod enrich;
+pub mod fetch_all_markets;
 pub mod index;
+pub mod init;
+pub mod install;
+pub mod markets;
+pub mod orders;
+pub mod pipeline;
+pub mod portfolio;
+pub mod portfolio_tui;
+pub mod sell;
+pub mod stream;
+pub mod version;
 pub mod worktree;
 pub mod portfolio_status;
 pub mod trades;

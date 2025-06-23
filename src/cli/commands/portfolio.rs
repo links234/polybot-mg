@@ -9,11 +9,11 @@ pub struct PortfolioArgs {
     /// Show only orders for specific market
     #[arg(short, long)]
     market: Option<String>,
-    
+
     /// Show only orders for specific asset
     #[arg(short, long)]
     asset: Option<String>,
-    
+
     /// Use simple text output instead of interactive TUI
     #[arg(long, short = 't')]
     text: bool,

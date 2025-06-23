@@ -1,5 +1,5 @@
+use serde::{Deserialize, Serialize};
 use std::fmt;
-use serde::{Serialize, Deserialize};
 
 /// Database codec trait for encoding/decoding types to/from bytes
 pub trait DbCodec<T> {
@@ -18,7 +18,7 @@ where
     fn encode(obj: &T) -> Result<Vec<u8>, CodecError> {
         serde_json::to_vec(obj).map_err(|e| CodecError::SerializationError(e.to_string()))
     }
-    
+
     fn decode(data: &[u8]) -> Result<T, CodecError> {
         serde_json::from_slice(data).map_err(|e| CodecError::DeserializationError(e.to_string()))
     }
@@ -35,7 +35,7 @@ where
     fn encode(obj: &T) -> Result<Vec<u8>, CodecError> {
         serde_json::to_vec(obj).map_err(|e| CodecError::SerializationError(e.to_string()))
     }
-    
+
     fn decode(data: &[u8]) -> Result<T, CodecError> {
         serde_json::from_slice(data).map_err(|e| CodecError::DeserializationError(e.to_string()))
     }
@@ -68,7 +68,7 @@ impl RocksDbKey for String {
     fn encode_key(&self) -> Vec<u8> {
         self.as_bytes().to_vec()
     }
-    
+
     fn decode_key(data: &[u8]) -> Result<Self, CodecError> {
         String::from_utf8(data.to_vec()).map_err(CodecError::from)
     }
@@ -78,10 +78,10 @@ impl RocksDbKey for &str {
     fn encode_key(&self) -> Vec<u8> {
         self.as_bytes().to_vec()
     }
-    
+
     fn decode_key(_data: &[u8]) -> Result<Self, CodecError> {
         Err(CodecError::DeserializationError(
-            "&str cannot be decoded without allocation; use String".to_string()
+            "&str cannot be decoded without allocation; use String".to_string(),
         ))
     }
 }
@@ -90,12 +90,13 @@ impl RocksDbKey for u64 {
     fn encode_key(&self) -> Vec<u8> {
         self.to_be_bytes().to_vec()
     }
-    
+
     fn decode_key(data: &[u8]) -> Result<Self, CodecError> {
         if data.len() != 8 {
-            return Err(CodecError::DeserializationError(
-                format!("Expected 8 bytes for u64, got {}", data.len())
-            ));
+            return Err(CodecError::DeserializationError(format!(
+                "Expected 8 bytes for u64, got {}",
+                data.len()
+            )));
         }
         let mut bytes = [0u8; 8];
         bytes.copy_from_slice(data);

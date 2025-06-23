@@ -20,6 +20,7 @@ mod tui;
 mod types;
 mod typed_store;
 mod file_store;
+mod gamma;
 
 #[tokio::main]
 async fn main() -> Result<()> {

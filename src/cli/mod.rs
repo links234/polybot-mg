@@ -36,6 +36,7 @@ use commands::install::{InstallArgs, InstallCommand};
 use commands::version::{VersionArgs, VersionCommand};
 use commands::index::{IndexArgs, IndexCommand};
 use commands::worktree::WorktreeArgs;
+use commands::gamma::{GammaArgs, execute_gamma_command};
 
 #[derive(Parser)]
 #[command(name = "polybot")]
@@ -116,6 +117,9 @@ pub enum Commands {
     
     /// Manage git worktrees with data and environment setup
     Worktree(WorktreeArgs),
+    
+    /// Gamma API operations for comprehensive data access
+    Gamma(GammaArgs),
 }
 
 impl Cli {
@@ -156,6 +160,7 @@ impl Cli {
             Commands::Version(args) => VersionCommand::new(args).execute(host, data_paths).await,
             Commands::Index(args) => IndexCommand::new(args).execute(host, data_paths).await,
             Commands::Worktree(args) => commands::worktree::worktree(args, host, data_paths).await,
+            Commands::Gamma(args) => execute_gamma_command(args, self.verbose > 0).await,
         }
     }
 } 

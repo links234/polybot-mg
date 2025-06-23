@@ -27,3 +27,4 @@ pub mod install;
 pub mod version;
 pub mod index;
 pub mod worktree;
+pub mod gamma;

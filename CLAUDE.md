@@ -20,6 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 10. **Idiomatic Rust**: Use `impl` methods on `struct`s directly instead of standalone functions
 11. **Comprehensive Logging**: Write good debug, info, warn and error logs (written to file) for debugging reference
 12. **Never Modify Cargo.toml Versions**: Never change version numbers in Cargo.toml unless explicitly requested by user
+13. **Performance Optimization**: NEVER use `timeout` command - always optimize for speed and performance
 
 ### Code Quality Standards
 

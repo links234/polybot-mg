@@ -7,6 +7,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// Gamma API error types
+#[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 #[allow(dead_code)]
 pub enum GammaError {
@@ -27,6 +28,7 @@ pub enum GammaError {
 }
 
 /// Position data from Gamma API
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GammaPosition {
     /// Market ID
@@ -286,6 +288,7 @@ pub struct PortfolioSummary {
 }
 
 /// Query parameters for Gamma API
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 #[allow(dead_code)]
 pub struct GammaQuery {

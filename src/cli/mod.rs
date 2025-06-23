@@ -37,9 +37,9 @@ use commands::sell::{SellArgs, SellCommand};
 use commands::stream::{StreamArgs, StreamCommand};
 use commands::version::{VersionArgs, VersionCommand};
 use commands::worktree::WorktreeArgs;
+use commands::gamma::{GammaArgs, execute_gamma_command};
 use commands::portfolio_status::{PortfolioStatusArgs, portfolio_status};
 use commands::trades::{TradesArgs, trades};
-// use commands::gamma::{GammaArgs, GammaCommand};
 use crate::address_book::AddressCommand;
 
 #[derive(Parser)]
@@ -125,6 +125,9 @@ pub enum Commands {
     /// Manage git worktrees with data and environment setup
     Worktree(WorktreeArgs),
     
+    /// Gamma API operations for comprehensive data access
+    Gamma(GammaArgs),
+    
     /// Check portfolio service status and cache statistics
     PortfolioStatus(PortfolioStatusArgs),
     
@@ -133,9 +136,6 @@ pub enum Commands {
     
     /// Manage address book for multiple Ethereum addresses
     Address(AddressCommand),
-    
-    // Historical data via Gamma API (positions, activity, portfolios)
-    // Gamma(GammaArgs),
 }
 
 impl Cli {
@@ -183,10 +183,10 @@ impl Cli {
             Commands::Version(args) => VersionCommand::new(args).execute(host, data_paths).await,
             Commands::Index(args) => IndexCommand::new(args).execute(host, data_paths).await,
             Commands::Worktree(args) => commands::worktree::worktree(args, host, data_paths).await,
+            Commands::Gamma(args) => execute_gamma_command(args, self.verbose > 0).await,
             Commands::PortfolioStatus(args) => portfolio_status(args, host, data_paths).await,
             Commands::Trades(args) => trades(args, host, data_paths).await,
             Commands::Address(cmd) => cmd.execute(host, data_paths).await,
-            // Commands::Gamma(args) => GammaCommand::new(args).execute(host, data_paths).await,
         }
     }
 }

@@ -7,3 +7,5 @@ pub mod types;
 pub mod client;
 pub mod storage;
 pub mod tracker;
+
+// Note: Types are available via gamma_api::types::* when needed

@@ -35,6 +35,15 @@ coverage/
 *.temp
 *.log
 
+# Logs folder
+logs/
+
+# Debug and test files
+debug_*.rs
+test_*.rs
+test_*.sh
+test_*.md
+
 # Market data files (from old implementation)
 *_markets.txt
 available_markets.txt
@@ -50,9 +59,7 @@ target/
 
 # Data
 data/
-
-# Logs
-logs/
+database/
 
 # Screenshots
 screenshots/

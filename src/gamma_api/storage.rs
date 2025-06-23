@@ -12,6 +12,7 @@ use super::types::*;
 use crate::data::DataPaths;
 
 /// User-specific data paths for gamma data
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct UserDataPaths {
@@ -404,6 +405,7 @@ impl GammaStorage {
 }
 
 /// User storage statistics
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct UserStorageStats {

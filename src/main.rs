@@ -12,6 +12,7 @@ mod errors;
 mod ethereum_utils;
 mod execution;
 mod file_store;
+mod gamma;
 mod gui;
 mod logging;
 mod markets;
@@ -25,6 +26,7 @@ mod types;
 mod ws;
 mod address_book;
 mod gamma_api;
+mod search;
 
 #[tokio::main]
 async fn main() -> Result<()> {

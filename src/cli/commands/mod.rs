@@ -28,6 +28,6 @@ pub mod sell;
 pub mod stream;
 pub mod version;
 pub mod worktree;
+pub mod gamma;
 pub mod portfolio_status;
 pub mod trades;
-// pub mod gamma;

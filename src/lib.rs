@@ -8,6 +8,7 @@ pub mod datasets;
 pub mod errors;
 pub mod ethereum_utils;
 pub mod execution;
+pub mod gamma;
 pub mod gui;
 pub mod logging;
 pub mod markets;
@@ -22,6 +23,7 @@ pub mod ws;
 // Re-export the GUI launcher function at the root level
 pub use gui::launch_trading_canvas;
 pub mod file_store;
+pub mod search;
 pub mod address_book;
 pub mod gamma_api;
 pub mod typed_store;

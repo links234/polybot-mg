@@ -16,6 +16,7 @@ use crate::data::DataPaths;
 use crate::address_book::{AddressBookServiceHandle, AddressBookCommand};
 
 /// Commands that can be sent to the gamma tracker service
+#[allow(dead_code)]
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum TrackerCommand {

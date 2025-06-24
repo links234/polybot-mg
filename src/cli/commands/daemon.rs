@@ -11,8 +11,8 @@ use tokio::signal;
 use tracing::{info, warn};
 
 use crate::data_paths::DataPaths;
-use crate::services::{Streamer, StreamerConfig};
-use crate::ws::{AuthPayload, PolyEvent, WsConfig};
+use crate::core::services::{Streamer, StreamerConfig};
+use crate::core::ws::{AuthPayload, PolyEvent, WsConfig};
 
 #[derive(Args, Clone)]
 pub struct DaemonArgs {

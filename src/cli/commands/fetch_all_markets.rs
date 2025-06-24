@@ -1,5 +1,5 @@
 use crate::data_paths::DataPaths;
-use crate::datasets::save_command_metadata;
+use crate::markets::datasets::save_command_metadata;
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use clap::Args;

@@ -10,7 +10,7 @@ use ratatui::{
 };
 use rust_decimal::Decimal;
 
-use crate::portfolio::{
+use crate::core::portfolio::{
     ActiveOrder, MarketPositionSummary, OrderSide, OrderStatus, PortfolioStats, Position,
     PositionStatus,
 };

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tracing::{error, info, warn};
 
 use crate::data_paths::{DataPaths, DATASETS_DIR, DEFAULT_DATASETS_DIR};
-use crate::datasets::{
+use crate::markets::datasets::{
     format_bytes, DatasetManager, DatasetManagerConfig, DatasetTui, DatasetType,
 };
 
@@ -352,7 +352,7 @@ impl DatasetsCommand {
 
     /// Parse dataset type from string
     fn parse_dataset_type(type_str: &str) -> Result<DatasetType> {
-        use crate::datasets::DataSource;
+        use crate::markets::datasets::DataSource;
 
         let normalized = type_str.to_lowercase();
         match normalized.as_str() {

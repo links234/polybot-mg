@@ -1,7 +1,7 @@
 //! Pipeline execution engine
 
 use super::{Pipeline, PipelineContext, PipelineStep};
-use crate::datasets::save_command_metadata;
+use crate::markets::datasets::save_command_metadata;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
@@ -26,6 +26,14 @@ pub struct PipelineRunner {
 }
 
 impl PipelineRunner {
+    /// Create a new pipeline runner with specified binary name
+    pub fn new(binary_name: String) -> Self {
+        Self {
+            binary_name,
+            verbose: false,
+        }
+    }
+
     /// Create a new pipeline runner with auto-detection of cargo vs binary execution
     pub fn new_auto() -> Self {
         let (binary_name, detection_info) = Self::detect_execution_method();

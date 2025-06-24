@@ -1,8 +1,8 @@
 use crate::data_paths::DataPaths;
 use anyhow::Result;
 use clap::Args;
-use crate::portfolio::command_handlers::PortfolioCommandHandlers;
-use crate::portfolio::display::{OrdersFormatter, DashboardFormatter};
+use crate::core::portfolio::cli::PortfolioCommandHandlers;
+use crate::core::portfolio::display::{OrdersFormatter, DashboardFormatter};
 use tracing::info;
 
 #[derive(Args, Clone)]

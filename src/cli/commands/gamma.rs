@@ -35,7 +35,7 @@ use ratatui::{
 };
 use rust_decimal::prelude::ToPrimitive;
 
-use crate::gamma::*;
+use crate::markets::gamma::*;
 use crate::data_paths::DataPaths;
 
 /// Gamma API command structure
@@ -1835,7 +1835,7 @@ async fn execute_process_raw(args: ProcessRawArgs) -> Result<()> {
 
 /// Launch interactive markets browser TUI
 async fn launch_markets_browser(markets: Vec<GammaMarket>) -> Result<()> {
-    use crate::gamma::tui::MarketsBrowser;
+    use crate::markets::gamma::tui::MarketsBrowser;
     use ratatui::{Terminal, backend::CrosstermBackend};
     use std::io;
     
@@ -1866,7 +1866,7 @@ async fn launch_markets_browser(markets: Vec<GammaMarket>) -> Result<()> {
 /// Run the markets browser loop
 async fn run_markets_browser(
     terminal: &mut ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
-    browser: &mut crate::gamma::tui::MarketsBrowser,
+    browser: &mut crate::markets::gamma::tui::MarketsBrowser,
 ) -> Result<()> {
     loop {
         terminal.draw(|f| browser.render(f, f.area()))?;
@@ -2364,16 +2364,16 @@ async fn execute_db_search(args: DbSearchArgs, _verbose: bool) -> Result<()> {
     // Initialize fast search engine
     let search_start = std::time::Instant::now();
     let db_path = PathBuf::from("./data/database/gamma");
-    let index_path = crate::gamma::get_index_path();
+    let index_path = crate::markets::gamma::get_index_path();
     
     // Create a static cache for the search engine to avoid rebuilding
     use std::sync::OnceLock;
-    static SEARCH_ENGINE: OnceLock<crate::gamma::FastSearchEngine> = OnceLock::new();
+    static SEARCH_ENGINE: OnceLock<crate::markets::gamma::FastSearchEngine> = OnceLock::new();
     
     let results = if let Some(engine) = SEARCH_ENGINE.get() {
         // Use cached engine
         spinner.set_message("⚡ Searching with ultra-fast in-memory index...");
-        let params = crate::gamma::SearchParams {
+        let params = crate::markets::gamma::SearchParams {
             query: args.query.clone(),
             category: args.field.clone().filter(|f| f == "category").and_then(|_| Some(args.query.clone())),
             tags: vec![],
@@ -2395,7 +2395,7 @@ async fn execute_db_search(args: DbSearchArgs, _verbose: bool) -> Result<()> {
         // Try to build the engine
         spinner.set_message("Building ultra-fast search engine (one-time operation)...");
         
-        match crate::gamma::build_fast_search_index(&db_path, &index_path, false).await {
+        match crate::markets::gamma::build_fast_search_index(&db_path, &index_path, false).await {
             Ok(engine) => {
                 let build_time = search_start.elapsed();
                 spinner.set_message(format!("⚡ Search engine built in {}ms, searching...", build_time.as_millis()));
@@ -2403,7 +2403,7 @@ async fn execute_db_search(args: DbSearchArgs, _verbose: bool) -> Result<()> {
                 // Cache the engine for future use
                 let engine = SEARCH_ENGINE.get_or_init(|| engine);
                 
-                let params = crate::gamma::SearchParams {
+                let params = crate::markets::gamma::SearchParams {
                     query: args.query.clone(),
                     category: args.field.clone().filter(|f| f == "category").and_then(|_| Some(args.query.clone())),
                     tags: vec![],
@@ -3574,8 +3574,8 @@ async fn execute_build_index(args: BuildIndexArgs, _verbose: bool) -> Result<()>
     
     // Initialize or get the search service
     let db_path = PathBuf::from("./data/database/gamma");
-    let index_path = crate::gamma::get_index_path();
-    let service = crate::gamma::init_search_service(db_path, index_path.clone()).await?;
+    let index_path = crate::markets::gamma::get_index_path();
+    let service = crate::markets::gamma::init_search_service(db_path, index_path.clone()).await?;
     
     // Start the service
     service.start().await?;
@@ -3589,12 +3589,12 @@ async fn execute_build_index(args: BuildIndexArgs, _verbose: bool) -> Result<()>
         println!("{}", format_service_status(&status, true));
         
         match &status {
-            crate::gamma::ServiceStatus::Ready { .. } => {
+            crate::markets::gamma::ServiceStatus::Ready { .. } => {
                 println!("{}", "✅ Fast search index built successfully!".bright_green());
                 println!("📁 Index location: {}", index_path.display().to_string().bright_cyan());
                 break;
             }
-            crate::gamma::ServiceStatus::Failed { error, .. } => {
+            crate::markets::gamma::ServiceStatus::Failed { error, .. } => {
                 println!("{}", format!("❌ Failed to build index: {}", error).red());
                 return Err(anyhow::anyhow!("Index build failed: {}", error));
             }
@@ -3616,8 +3616,8 @@ async fn execute_interactive_search(args: InteractiveSearchArgs, _verbose: bool)
     
     // Initialize or get the search service
     let db_path = PathBuf::from("./data/database/gamma");
-    let index_path = crate::gamma::get_index_path();
-    let service = crate::gamma::init_search_service(db_path, index_path).await?;
+    let index_path = crate::markets::gamma::get_index_path();
+    let service = crate::markets::gamma::init_search_service(db_path, index_path).await?;
     
     // Start the service if not already started
     service.start().await?;
@@ -3630,10 +3630,10 @@ async fn execute_interactive_search(args: InteractiveSearchArgs, _verbose: bool)
     loop {
         let status = status_rx.borrow().clone();
         match &status {
-            crate::gamma::ServiceStatus::Ready { .. } => {
+            crate::markets::gamma::ServiceStatus::Ready { .. } => {
                 println!("\r✅ Search engine ready! Ultra-fast Aho-Corasick search enabled");
                 if args.show_stats {
-                    if let crate::gamma::ServiceStatus::Ready { markets, patterns, categories, build_time_ms } = status {
+                    if let crate::markets::gamma::ServiceStatus::Ready { markets, patterns, categories, build_time_ms } = status {
                         println!("\n📊 Index Statistics:");
                         println!("  • Documents: {}", markets.to_string().bright_cyan());
                         println!("  • Patterns: {}", patterns.to_string().bright_cyan());
@@ -3643,7 +3643,7 @@ async fn execute_interactive_search(args: InteractiveSearchArgs, _verbose: bool)
                 }
                 break;
             }
-            crate::gamma::ServiceStatus::Failed { error, .. } => {
+            crate::markets::gamma::ServiceStatus::Failed { error, .. } => {
                 println!("\r❌ Failed to build search engine: {}", error);
                 return Err(anyhow::anyhow!("Search service failed: {}", error));
             }
@@ -3679,7 +3679,7 @@ async fn execute_interactive_search(args: InteractiveSearchArgs, _verbose: bool)
         
         // Perform ultra-fast search
         let start = std::time::Instant::now();
-        let params = crate::gamma::SearchParams {
+        let params = crate::markets::gamma::SearchParams {
             query: query.to_string(),
             category: None,
             tags: vec![],
@@ -3732,8 +3732,8 @@ async fn execute_search_status(args: SearchStatusArgs, _verbose: bool) -> Result
     
     // Initialize or get the search service
     let db_path = PathBuf::from("./data/database/gamma");
-    let index_path = crate::gamma::get_index_path();
-    let service = crate::gamma::init_search_service(db_path, index_path).await?;
+    let index_path = crate::markets::gamma::get_index_path();
+    let service = crate::markets::gamma::init_search_service(db_path, index_path).await?;
     
     if args.watch {
         // Watch mode - continuously display status updates
@@ -3753,11 +3753,11 @@ async fn execute_search_status(args: SearchStatusArgs, _verbose: bool) -> Result
             
             // Check if ready or failed
             match &status {
-                crate::gamma::ServiceStatus::Ready { .. } => {
+                crate::markets::gamma::ServiceStatus::Ready { .. } => {
                     println!(); // New line after final status
                     break;
                 }
-                crate::gamma::ServiceStatus::Failed { .. } => {
+                crate::markets::gamma::ServiceStatus::Failed { .. } => {
                     println!(); // New line after final status
                     break;
                 }
@@ -3801,8 +3801,8 @@ async fn execute_search_status(args: SearchStatusArgs, _verbose: bool) -> Result
 }
 
 /// Format service status for display
-fn format_service_status(status: &crate::gamma::ServiceStatus, verbose: bool) -> String {
-    use crate::gamma::ServiceStatus;
+fn format_service_status(status: &crate::markets::gamma::ServiceStatus, verbose: bool) -> String {
+    use crate::markets::gamma::ServiceStatus;
     
     match status {
         ServiceStatus::NotStarted => {
@@ -3972,8 +3972,8 @@ async fn execute_db_list_non_interactive_with_db(args: DbListArgs, database: Gam
 struct DatabaseMarketsBrowser {
     database: GammaDatabase,
     db_path: PathBuf,
-    index_service: Arc<crate::gamma::IndexService>,
-    fast_search_engine: Option<crate::gamma::FastSearchEngine>,
+    index_service: Arc<crate::markets::gamma::IndexService>,
+    fast_search_engine: Option<crate::markets::gamma::FastSearchEngine>,
     markets: Vec<GammaMarket>,
     state: ListState,
     selected_market: Option<GammaMarket>,
@@ -3988,7 +3988,7 @@ struct DatabaseMarketsBrowser {
     search_loading: bool,
     search_start_time: Option<std::time::Instant>,
     // Progress tracking
-    last_index_progress: crate::gamma::IndexProgress,
+    last_index_progress: crate::markets::gamma::IndexProgress,
     show_progress: bool,
     // Search result tracking
     all_search_results: Vec<GammaMarket>,
@@ -4004,7 +4004,7 @@ impl DatabaseMarketsBrowser {
         let status_message = "📊 Database search mode (Press 'b' to build fast search index)".to_string();
         
         // Initialize the index service
-        let index_service = crate::gamma::init_index_service().await?;
+        let index_service = crate::markets::gamma::init_index_service().await?;
         let initial_progress = index_service.get_progress().await;
         
         let mut browser = Self {
@@ -4047,7 +4047,7 @@ impl DatabaseMarketsBrowser {
             if self.all_search_results.is_empty() {
                 // Load all search results first
                 if self.index_service.is_ready().await && self.fast_search_engine.is_some() {
-                    let params = crate::gamma::SearchParams {
+                    let params = crate::markets::gamma::SearchParams {
                         query: self.search_query.clone(),
                         category: None,
                         tags: vec![],
@@ -4207,12 +4207,12 @@ impl DatabaseMarketsBrowser {
         let progress = self.index_service.get_progress().await;
         
         match progress.status {
-            crate::gamma::IndexStatus::Ready { .. } => {
+            crate::markets::gamma::IndexStatus::Ready { .. } => {
                 self.status_message = "⚡ Fast search already ready! Enabled for searches.".to_string();
                 return Ok(());
             }
-            crate::gamma::IndexStatus::LoadingMarkets { .. } | 
-            crate::gamma::IndexStatus::BuildingIndex { .. } => {
+            crate::markets::gamma::IndexStatus::LoadingMarkets { .. } | 
+            crate::markets::gamma::IndexStatus::BuildingIndex { .. } => {
                 self.status_message = "⏳ Fast search index already building...".to_string();
                 self.show_progress = true;
                 return Ok(());
@@ -4281,7 +4281,7 @@ impl DatabaseMarketsBrowser {
         match tokio::time::timeout(Duration::from_millis(1), self.index_service.get_progress()).await {
             Ok(new_progress) => {
                 // Check if we need to update the fast search engine reference
-                if matches!(new_progress.status, crate::gamma::IndexStatus::Ready { .. }) && self.fast_search_engine.is_none() {
+                if matches!(new_progress.status, crate::markets::gamma::IndexStatus::Ready { .. }) && self.fast_search_engine.is_none() {
                     // For now, we'd need to get the engine from the service
                     // This is a limitation of the current design
                 }
@@ -4447,9 +4447,9 @@ fn render_database_browser(f: &mut Frame, browser: &DatabaseMarketsBrowser) {
     
     // Header with search mode info
     let search_mode_info = match browser.last_index_progress.status {
-        crate::gamma::IndexStatus::Ready { .. } => " | ⚡ FAST SEARCH",
-        crate::gamma::IndexStatus::LoadingMarkets { .. } | 
-        crate::gamma::IndexStatus::BuildingIndex { .. } => " | 🔨 BUILDING INDEX...",
+        crate::markets::gamma::IndexStatus::Ready { .. } => " | ⚡ FAST SEARCH",
+        crate::markets::gamma::IndexStatus::LoadingMarkets { .. } | 
+        crate::markets::gamma::IndexStatus::BuildingIndex { .. } => " | 🔨 BUILDING INDEX...",
         _ => " | 📊 DATABASE MODE",
     };
     
@@ -4558,8 +4558,8 @@ fn render_market_list(f: &mut Frame, area: Rect, browser: &DatabaseMarketsBrowse
 }
 
 /// Render the progress section
-fn render_progress_section(f: &mut Frame, area: Rect, progress: &crate::gamma::IndexProgress) {
-    use crate::gamma::IndexStatus;
+fn render_progress_section(f: &mut Frame, area: Rect, progress: &crate::markets::gamma::IndexProgress) {
+    use crate::markets::gamma::IndexStatus;
     
     let progress_text = match &progress.status {
         IndexStatus::NotStarted => "🔴 Not Started - Press 'b' to build index".to_string(),

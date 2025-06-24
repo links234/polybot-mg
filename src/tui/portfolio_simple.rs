@@ -1,6 +1,6 @@
 //! Simple portfolio display without full TUI (for environments where TUI doesn't work)
 
-use crate::portfolio::orders_api::PolymarketOrder;
+use crate::core::portfolio::api::orders::PolymarketOrder;
 use anyhow::Result;
 use comfy_table::{presets::UTF8_FULL, ContentArrangement, Table};
 use owo_colors::OwoColorize;

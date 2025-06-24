@@ -19,8 +19,8 @@ use std::{
     time::Duration,
 };
 
-use crate::portfolio::orders_api::PolymarketOrder;
-use crate::portfolio::Position;
+use crate::core::portfolio::api::orders::PolymarketOrder;
+use crate::core::portfolio::Position;
 use rust_decimal::Decimal;
 
 #[allow(dead_code)]
@@ -450,7 +450,7 @@ fn render_orders(f: &mut Frame, area: Rect, app: &App) {
 
 #[allow(dead_code)]
 fn render_positions(f: &mut Frame, area: Rect, app: &App) {
-    use crate::portfolio::{PositionSide, PositionStatus};
+    use crate::core::portfolio::{PositionSide, PositionStatus};
 
     if app.positions.is_empty() {
         let text = vec![

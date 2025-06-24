@@ -18,7 +18,7 @@ use std::io::{self, Stdout};
 
 use super::selection_builder::SelectionBuilderResult;
 use crate::data_paths::DataPaths;
-use crate::datasets::{SelectionManager, TokenSelection};
+use crate::markets::datasets::{SelectionManager, TokenSelection};
 use crate::tui::SelectionBuilder;
 
 #[allow(dead_code)]

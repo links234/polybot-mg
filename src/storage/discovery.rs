@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
-use crate::datasets::{
+use crate::markets::datasets::{
     BinaryFormat, CommandInfo, DatasetCommandInfo, DatasetInfo, DatasetType, DetectedCommand,
     ExecutionContext, FileInfo, FileType, JsonSubtype, TextFormat, YamlPurpose,
 };
@@ -227,7 +227,7 @@ impl DatasetDiscovery {
         // Try to load dataset.yaml for metadata
         let dataset_yaml_path = path.join("dataset.yaml");
         let (dataset_type, command_info) = if dataset_yaml_path.exists() {
-            if let Ok(metadata) = crate::datasets::load_dataset_metadata(path) {
+            if let Ok(metadata) = crate::markets::datasets::load_dataset_metadata(path) {
                 let dataset_type = self.parse_dataset_type(&metadata, category_name);
                 let dataset_command_info = self.convert_command_info(&metadata.command_info);
                 (dataset_type, dataset_command_info)
@@ -268,7 +268,7 @@ impl DatasetDiscovery {
             created_at: metadata.created().ok().map(|t| t.into()),
             modified_at: metadata.modified().ok().map(|t| t.into()),
             files,
-            health_status: crate::datasets::DatasetHealthStatus::Healthy,
+            health_status: crate::markets::datasets::DatasetHealthStatus::Healthy,
             warnings: Vec::new(),
             metrics: Default::default(),
         })
@@ -295,7 +295,7 @@ impl DatasetDiscovery {
     /// Parse dataset type from metadata
     fn parse_dataset_type(
         &self,
-        metadata: &crate::datasets::DatasetMetadata,
+        metadata: &crate::markets::datasets::DatasetMetadata,
         category_name: &str,
     ) -> DatasetType {
         match metadata.dataset_type.as_str() {
@@ -311,7 +311,7 @@ impl DatasetDiscovery {
                 }
             }
             "MarketData" => DatasetType::MarketData {
-                source: crate::datasets::DataSource::ClobApi,
+                source: crate::markets::datasets::DataSource::ClobApi,
             },
             "AnalyzedMarkets" => {
                 let source_dataset = metadata
@@ -333,7 +333,7 @@ impl DatasetDiscovery {
     fn infer_dataset_type_from_name(&self, name: &str) -> DatasetType {
         if name.contains("raw") {
             DatasetType::MarketData {
-                source: crate::datasets::DataSource::ClobApi,
+                source: crate::markets::datasets::DataSource::ClobApi,
             }
         } else if name.contains("bitcoin") || name.contains("analyzed") {
             DatasetType::AnalyzedMarkets {
@@ -408,10 +408,10 @@ impl DatasetDiscovery {
         // For pipeline runs, extract info from dataset.yaml metadata
         if matches!(
             dataset.dataset_type,
-            crate::datasets::DatasetType::Pipeline { .. }
+            crate::markets::datasets::DatasetType::Pipeline { .. }
         ) {
             // Try to extract pipeline name and info from additional_info
-            if let Ok(metadata) = crate::datasets::load_dataset_metadata(&dataset.path) {
+            if let Ok(metadata) = crate::markets::datasets::load_dataset_metadata(&dataset.path) {
                 if let Some(pipeline_name) = metadata
                     .additional_info
                     .get("pipeline_name")

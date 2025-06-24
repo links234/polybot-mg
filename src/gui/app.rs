@@ -9,13 +9,14 @@ use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
 use crate::data_paths::DataPaths;
-use crate::datasets::{DatasetManager, DatasetManagerConfig};
-use crate::execution::orders::{EnhancedOrder, OrderManager};
+use crate::markets::datasets::{DatasetManager, DatasetManagerConfig};
+use crate::core::execution::orders::{EnhancedOrder, OrderManager};
 use crate::gui::panes::Pane;
 use crate::gui::services::PortfolioService;
-use crate::portfolio::manager::PortfolioManager;
-use crate::services::streaming::{StreamingService, StreamingServiceConfig, StreamingServiceTrait};
-use crate::ws::{PolyEvent, Side, WsConfig};
+use crate::core::portfolio::controller::PortfolioManager;
+use crate::core::services::streaming::{StreamingService, StreamingServiceConfig, StreamingServiceTrait};
+use crate::core::ws::{PolyEvent, WsConfig};
+use crate::core::types::common::Side;
 
 // Additional imports for screenshot functionality
 use std::fs;
@@ -115,8 +116,8 @@ pub struct TradingApp {
 
     /// Orderbook state
     current_token_id: Option<String>,
-    current_bids: Vec<crate::execution::orderbook::PriceLevel>,
-    current_asks: Vec<crate::execution::orderbook::PriceLevel>,
+    current_bids: Vec<crate::core::types::market::PriceLevel>,
+    current_asks: Vec<crate::core::types::market::PriceLevel>,
 
     /// Track orderbook changes for flash animation
     orderbook_changes: Vec<OrderBookChange>,
@@ -141,10 +142,10 @@ pub struct TradingApp {
     worker_stream_events: Vec<PolyEvent>,
     worker_stream_max_events: usize,
     cached_streaming_tokens: Vec<String>,
-    cached_orderbook: Option<crate::ws::state::OrderBook>,
+    cached_orderbook: Option<crate::core::ws::OrderBook>,
     cached_last_trade_price: Option<(Decimal, u64)>,
-    cached_streaming_stats: Option<crate::services::streaming::traits::StreamingStats>,
-    cached_worker_statuses: Vec<crate::services::streaming::traits::WorkerStatus>,
+    cached_streaming_stats: Option<crate::core::services::streaming::traits::StreamingStats>,
+    cached_worker_statuses: Vec<crate::core::services::streaming::traits::WorkerStatus>,
 
     /// Screenshot state
     pending_screenshot: Option<(std::path::PathBuf, String)>,
@@ -167,10 +168,10 @@ pub struct TradingApp {
     /// Channels for receiving cached data from background task
     cached_data_receivers: Option<(
         std::sync::mpsc::Receiver<Vec<String>>,
-        std::sync::mpsc::Receiver<crate::ws::state::OrderBook>,
+        std::sync::mpsc::Receiver<crate::core::ws::OrderBook>,
         std::sync::mpsc::Receiver<(Decimal, u64)>,
-        std::sync::mpsc::Receiver<crate::services::streaming::traits::StreamingStats>,
-        std::sync::mpsc::Receiver<Vec<crate::services::streaming::traits::WorkerStatus>>,
+        std::sync::mpsc::Receiver<crate::core::services::streaming::traits::StreamingStats>,
+        std::sync::mpsc::Receiver<Vec<crate::core::services::streaming::traits::WorkerStatus>>,
     )>,
 
     /// Channel for sending current token updates to background task
@@ -3211,20 +3212,20 @@ struct TradingBehavior<'a> {
     streaming_state: &'a StreamingState,
     streaming_assets: &'a Vec<String>,
     current_token_id: &'a mut Option<String>,
-    _current_bids: &'a Vec<crate::execution::orderbook::PriceLevel>,
-    _current_asks: &'a Vec<crate::execution::orderbook::PriceLevel>,
+    _current_bids: &'a Vec<crate::core::types::market::PriceLevel>,
+    _current_asks: &'a Vec<crate::core::types::market::PriceLevel>,
     orderbook_changes: &'a Vec<OrderBookChange>,
     show_dataset_selector: &'a mut bool,
     _last_position_fetch: &'a mut Option<std::time::Instant>,
     _is_fetching_positions: &'a mut bool,
     token_activities: &'a Arc<RwLock<HashMap<String, TokenActivity>>>,
     streaming_service: &'a Option<Arc<StreamingService>>,
-    cached_streaming_stats: &'a Option<crate::services::streaming::traits::StreamingStats>,
+    cached_streaming_stats: &'a Option<crate::core::services::streaming::traits::StreamingStats>,
     pending_new_orderbook: &'a mut Option<String>,
     pending_new_worker_details: &'a mut Option<usize>,
-    cached_orderbook: &'a Option<crate::ws::state::OrderBook>,
+    cached_orderbook: &'a Option<crate::core::ws::OrderBook>,
     cached_last_trade_price: &'a Option<(Decimal, u64)>,
-    cached_worker_statuses: &'a Vec<crate::services::streaming::traits::WorkerStatus>,
+    cached_worker_statuses: &'a Vec<crate::core::services::streaming::traits::WorkerStatus>,
     selected_worker_id: &'a mut Option<usize>,
     worker_stream_events: &'a mut Vec<PolyEvent>,
     worker_stream_max_events: &'a usize,
@@ -3794,14 +3795,14 @@ impl TradingBehavior<'_> {
 
                                 // Side with color
                                 let side_str = match order.side {
-                                    crate::execution::orders::OrderSide::Buy => "BUY",
-                                    crate::execution::orders::OrderSide::Sell => "SELL",
+                                    crate::core::execution::orders::OrderSide::Buy => "BUY",
+                                    crate::core::execution::orders::OrderSide::Sell => "SELL",
                                 };
                                 let side_color = match order.side {
-                                    crate::execution::orders::OrderSide::Buy => {
+                                    crate::core::execution::orders::OrderSide::Buy => {
                                         egui::Color32::from_rgb(100, 200, 100)
                                     }
-                                    crate::execution::orders::OrderSide::Sell => {
+                                    crate::core::execution::orders::OrderSide::Sell => {
                                         egui::Color32::from_rgb(200, 100, 100)
                                     }
                                 };
@@ -3819,32 +3820,32 @@ impl TradingBehavior<'_> {
 
                                 // Status with color
                                 let status_str = match order.status {
-                                    crate::execution::orders::OrderStatus::Open => "OPEN",
-                                    crate::execution::orders::OrderStatus::Filled => "FILLED",
-                                    crate::execution::orders::OrderStatus::Cancelled => "CANCELLED",
-                                    crate::execution::orders::OrderStatus::PartiallyFilled => {
+                                    crate::core::execution::orders::OrderStatus::Open => "OPEN",
+                                    crate::core::execution::orders::OrderStatus::Filled => "FILLED",
+                                    crate::core::execution::orders::OrderStatus::Cancelled => "CANCELLED",
+                                    crate::core::execution::orders::OrderStatus::PartiallyFilled => {
                                         "PARTIALLY_FILLED"
                                     }
-                                    crate::execution::orders::OrderStatus::Rejected => "REJECTED",
-                                    crate::execution::orders::OrderStatus::Pending => "PENDING",
+                                    crate::core::execution::orders::OrderStatus::Rejected => "REJECTED",
+                                    crate::core::execution::orders::OrderStatus::Pending => "PENDING",
                                 };
                                 let status_color = match order.status {
-                                    crate::execution::orders::OrderStatus::Open => {
+                                    crate::core::execution::orders::OrderStatus::Open => {
                                         egui::Color32::from_rgb(100, 200, 100)
                                     }
-                                    crate::execution::orders::OrderStatus::PartiallyFilled => {
+                                    crate::core::execution::orders::OrderStatus::PartiallyFilled => {
                                         egui::Color32::from_rgb(255, 200, 100)
                                     }
-                                    crate::execution::orders::OrderStatus::Filled => {
+                                    crate::core::execution::orders::OrderStatus::Filled => {
                                         egui::Color32::from_rgb(100, 100, 200)
                                     }
-                                    crate::execution::orders::OrderStatus::Cancelled => {
+                                    crate::core::execution::orders::OrderStatus::Cancelled => {
                                         egui::Color32::from_rgb(200, 100, 100)
                                     }
-                                    crate::execution::orders::OrderStatus::Rejected => {
+                                    crate::core::execution::orders::OrderStatus::Rejected => {
                                         egui::Color32::from_rgb(200, 80, 80)
                                     }
-                                    crate::execution::orders::OrderStatus::Pending => {
+                                    crate::core::execution::orders::OrderStatus::Pending => {
                                         egui::Color32::from_rgb(255, 255, 100)
                                     }
                                 };
@@ -4271,10 +4272,10 @@ impl TradingBehavior<'_> {
 
                                 // Side with color
                                 let side_color = match position.side {
-                                    crate::portfolio::PositionSide::Long => {
+                                    crate::core::portfolio::PositionSide::Long => {
                                         egui::Color32::from_rgb(100, 200, 100)
                                     }
-                                    crate::portfolio::PositionSide::Short => {
+                                    crate::core::portfolio::PositionSide::Short => {
                                         egui::Color32::from_rgb(200, 100, 100)
                                     }
                                 };
@@ -4309,11 +4310,11 @@ impl TradingBehavior<'_> {
 
                                 // Status
                                 let status_color = match position.status {
-                                    crate::portfolio::PositionStatus::Open => {
+                                    crate::core::portfolio::PositionStatus::Open => {
                                         egui::Color32::from_rgb(100, 200, 100)
                                     }
-                                    crate::portfolio::PositionStatus::Closed => egui::Color32::GRAY,
-                                    crate::portfolio::PositionStatus::Liquidated => {
+                                    crate::core::portfolio::PositionStatus::Closed => egui::Color32::GRAY,
+                                    crate::core::portfolio::PositionStatus::Liquidated => {
                                         egui::Color32::from_rgb(200, 100, 100)
                                     }
                                 };
@@ -4377,8 +4378,8 @@ impl TradingBehavior<'_> {
                 }
 
                 if let Some(order_book) = &self.cached_orderbook {
-                    let bids = order_book.get_bids().to_vec();
-                    let asks = order_book.get_asks().to_vec();
+                    let bids = order_book.get_bids();
+                    let asks = order_book.get_asks();
 
                     // Enhanced order book display with depth visualization
                     use crate::gui::components::market_data::order_book_display_enhanced;
@@ -4391,7 +4392,7 @@ impl TradingBehavior<'_> {
                         .map(|change| (change.price, change.size, change.changed_at, change.is_bid))
                         .collect();
 
-                    order_book_display_enhanced(ui, &bids, &asks, &changes);
+                    order_book_display_enhanced(ui, &bids[..], &asks[..], &changes);
 
                     // Additional market depth metrics
                     ui.separator();

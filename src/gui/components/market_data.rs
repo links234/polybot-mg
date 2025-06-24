@@ -1,6 +1,6 @@
 //! Market data display components
 
-use crate::execution::orderbook::PriceLevel;
+use crate::core::types::market::PriceLevel;
 use egui::{Response, Ui};
 use rust_decimal::Decimal;
 use std::time::Instant;

@@ -10,7 +10,7 @@ use tracing::{info, error, warn};
 
 use crate::address_book::types::*;
 use crate::address_book::storage::*;
-use crate::portfolio::PortfolioServiceHandle;
+use crate::core::portfolio::PortfolioServiceHandle;
 use reqwest::Client;
 use serde_json::Value;
 use std::str::FromStr;
@@ -666,7 +666,7 @@ impl AddressBookService {
         portfolio_service: &PortfolioServiceHandle,
     ) -> Result<AddressStats> {
         // Get portfolio state for address
-        let portfolio_state = portfolio_service.get_portfolio_state().await?;
+        let portfolio_state = portfolio_service.get_state().await?;
         
         // Get trade history
         let trades = portfolio_service.get_trade_history(None, None).await.unwrap_or_default();
@@ -680,8 +680,8 @@ impl AddressBookService {
             let volume = trade.size * trade.price;
             total_volume += volume;
             match trade.side {
-                crate::portfolio::types::OrderSide::Buy => buy_volume += volume,
-                crate::portfolio::types::OrderSide::Sell => sell_volume += volume,
+                crate::core::portfolio::types::OrderSide::Buy => buy_volume += volume,
+                crate::core::portfolio::types::OrderSide::Sell => sell_volume += volume,
             }
         }
         

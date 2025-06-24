@@ -3,7 +3,7 @@ use anyhow::Result;
 use clap::Args;
 use rust_decimal::Decimal;
 use tracing::{info, warn};
-use crate::portfolio::command_handlers::enhanced_sell_command;
+use crate::core::portfolio::cli::enhanced_sell_command;
 
 #[derive(Args, Clone)]
 pub struct SellArgs {

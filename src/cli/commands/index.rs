@@ -1,6 +1,6 @@
 use crate::data_paths::DataPaths;
-use crate::file_store::FileStore;
-use crate::markets::fetcher::Market;
+use crate::markets::file_store::FileStore;
+use crate::markets::clob::fetcher::Market;
 use crate::tui::ProgressUpdate;
 use crate::typed_store::{
     models::{

@@ -21,7 +21,7 @@ pub struct PortfolioArgs {
 
 pub async fn portfolio(args: PortfolioArgs, host: &str, data_paths: DataPaths) -> Result<()> {
     // Use the enhanced portfolio command with the new portfolio system
-    use crate::portfolio::command_handlers::enhanced_portfolio_command;
+    use crate::core::portfolio::cli::enhanced_portfolio_command;
     
     enhanced_portfolio_command(
         args.market,

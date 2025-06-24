@@ -10,11 +10,12 @@ use tokio::signal;
 use tracing::{debug, error, info, warn};
 
 use crate::data_paths::DataPaths;
-use crate::datasets::SelectionManager;
+use crate::markets::datasets::SelectionManager;
 use crate::logging::{init_logging, LogMode, LoggingConfig};
-use crate::services::{Streamer, StreamerConfig};
+use crate::core::services::{Streamer, StreamerConfig};
 use crate::tui::{events, ui, App, EventHandler};
-use crate::ws::{AuthPayload, PolyEvent, Side, WsConfig};
+use crate::core::ws::{AuthPayload, PolyEvent, WsConfig};
+use crate::core::types::common::Side;
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, KeyCode},

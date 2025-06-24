@@ -2,7 +2,7 @@ use crate::data_paths::DataPaths;
 use anyhow::{Result, anyhow};
 use clap::Args;
 use tracing::{info, warn};
-use crate::portfolio::command_handlers::enhanced_cancel_command;
+use crate::core::portfolio::cli::enhanced_cancel_command;
 
 #[derive(Args, Clone)]
 pub struct CancelArgs {

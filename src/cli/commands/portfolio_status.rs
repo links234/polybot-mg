@@ -3,9 +3,8 @@
 use anyhow::Result;
 use clap::Args;
 use crate::data_paths::DataPaths;
-use crate::portfolio::{
-    get_portfolio_service_handle, DashboardFormatter,
-};
+use crate::core::portfolio::cli::get_portfolio_service_handle;
+use crate::core::portfolio::display::DashboardFormatter;
 use crate::config;
 use crate::ethereum_utils;
 use tracing::info;
@@ -93,17 +92,17 @@ pub async fn portfolio_status(args: PortfolioStatusArgs, host: &str, data_paths:
     if args.dashboard {
         // Refresh data first
         info!("Refreshing portfolio data...");
-        service_handle.refresh_data().await?;
+        service_handle.refresh().await?;
         
         // Get portfolio state
-        let portfolio_state = service_handle.get_portfolio_state().await?;
+        let portfolio_state = service_handle.get_state().await?;
         
         // Format and display dashboard
         let formatter = DashboardFormatter::new(&portfolio_state, &address, host);
         print!("{}", formatter.format_dashboard());
     } else {
         // Show summary by default
-        let portfolio_state = service_handle.get_portfolio_state().await?;
+        let portfolio_state = service_handle.get_state().await?;
         
         println!("📈 Portfolio Summary:");
         println!("  Last Updated: {}", portfolio_state.last_updated.format("%Y-%m-%d %H:%M:%S UTC"));

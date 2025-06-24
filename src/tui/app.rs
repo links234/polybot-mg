@@ -1,11 +1,12 @@
 use crate::data_paths::DataPaths;
-use crate::execution::orderbook::PriceLevel;
-use crate::execution::orders::{EnhancedOrder, OrderManager};
-use crate::portfolio::manager::PortfolioManager;
-use crate::services::Streamer;
+use crate::core::types::market::PriceLevel;
+use crate::core::types::common::Side;
+use crate::core::ws::PolyEvent;
+use crate::core::execution::orders::{EnhancedOrder, OrderManager};
+use crate::core::portfolio::controller::PortfolioManager;
+use crate::core::services::Streamer;
 use crate::tui::navigation::Navigation;
 use crate::tui::pages::{MarketsPage, OrdersPage, PortfolioPage, StreamPage, TokensPage};
-use crate::ws::{PolyEvent, Side};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -443,7 +444,7 @@ impl App {
         info!("Updated orders cache with {} orders", fetched_orders.len());
 
         // Convert to ActiveOrder for portfolio manager compatibility
-        let active_orders: Result<Vec<crate::portfolio::types::ActiveOrder>, _> = fetched_orders
+        let active_orders: Result<Vec<crate::core::portfolio::types::ActiveOrder>, _> = fetched_orders
             .iter()
             .map(|enhanced_order| Self::convert_enhanced_to_active_order(enhanced_order))
             .collect();
@@ -472,8 +473,8 @@ impl App {
     /// Convert EnhancedOrder to ActiveOrder for portfolio manager compatibility
     fn convert_enhanced_to_active_order(
         enhanced: &EnhancedOrder,
-    ) -> Result<crate::portfolio::types::ActiveOrder, anyhow::Error> {
-        use crate::portfolio::types::{
+    ) -> Result<crate::core::portfolio::types::ActiveOrder, anyhow::Error> {
+        use crate::core::portfolio::types::{
             ActiveOrder, OrderSide, OrderStatus, OrderType, TimeInForce,
         };
         use chrono::Utc;
@@ -482,18 +483,18 @@ impl App {
 
         // Convert side
         let side = match enhanced.side {
-            crate::execution::orders::OrderSide::Buy => OrderSide::Buy,
-            crate::execution::orders::OrderSide::Sell => OrderSide::Sell,
+            crate::core::execution::orders::OrderSide::Buy => OrderSide::Buy,
+            crate::core::execution::orders::OrderSide::Sell => OrderSide::Sell,
         };
 
         // Convert status
         let status = match enhanced.status {
-            crate::execution::orders::OrderStatus::Open => OrderStatus::Open,
-            crate::execution::orders::OrderStatus::Filled => OrderStatus::Filled,
-            crate::execution::orders::OrderStatus::Cancelled => OrderStatus::Cancelled,
-            crate::execution::orders::OrderStatus::PartiallyFilled => OrderStatus::PartiallyFilled,
-            crate::execution::orders::OrderStatus::Rejected => OrderStatus::Rejected,
-            crate::execution::orders::OrderStatus::Pending => OrderStatus::Pending,
+            crate::core::execution::orders::OrderStatus::Open => OrderStatus::Open,
+            crate::core::execution::orders::OrderStatus::Filled => OrderStatus::Filled,
+            crate::core::execution::orders::OrderStatus::Cancelled => OrderStatus::Cancelled,
+            crate::core::execution::orders::OrderStatus::PartiallyFilled => OrderStatus::PartiallyFilled,
+            crate::core::execution::orders::OrderStatus::Rejected => OrderStatus::Rejected,
+            crate::core::execution::orders::OrderStatus::Pending => OrderStatus::Pending,
         };
 
         // Extract outcome from additional fields or market info

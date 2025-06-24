@@ -1,4 +1,4 @@
-use crate::portfolio::types::{ActiveOrder, OrderSide, OrderStatus, OrderType};
+use crate::core::portfolio::types::{ActiveOrder, OrderSide, OrderStatus, OrderType};
 use crate::tui::App;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{

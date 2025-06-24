@@ -5,28 +5,20 @@ mod auth;
 mod auth_env;
 mod cli;
 mod config;
+mod core;
 mod data_paths;
 use data_paths as data;
-mod datasets;
 mod errors;
 mod ethereum_utils;
-mod execution;
-mod file_store;
-mod gamma;
 mod gui;
 mod logging;
 mod markets;
 mod pipeline;
-mod portfolio;
-mod services;
 mod storage;
 mod tui;
 mod typed_store;
 mod types;
-mod ws;
 mod address_book;
-mod gamma_api;
-mod search;
 
 #[tokio::main]
 async fn main() -> Result<()> {

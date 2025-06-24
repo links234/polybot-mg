@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::{Args, Subcommand};
 
 use crate::data_paths::DataPaths;
-use crate::datasets::SelectionManager;
+use crate::markets::datasets::SelectionManager;
 use crate::tui::SelectionBuilder;
 
 #[derive(Args, Clone)]

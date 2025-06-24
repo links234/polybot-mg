@@ -18,7 +18,7 @@ use ratatui::{
 use std::io;
 use std::time::Duration;
 
-use crate::portfolio::orders_api::PolymarketOrder;
+use crate::core::portfolio::api::orders::PolymarketOrder;
 use rust_decimal::Decimal;
 
 #[derive(Debug, Clone)]

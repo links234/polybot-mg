@@ -1,5 +1,5 @@
 use crate::define_typed_cf;
-use crate::markets::fetcher::{Market as FetchedMarket, MarketToken as FetchedMarketToken};
+use crate::markets::clob::fetcher::{Market as FetchedMarket, MarketToken as FetchedMarketToken};
 use crate::typed_store::codec::{CodecError, RocksDbValue};
 use crate::typed_store::table::{Table, TypedCf};
 use serde::{Deserialize, Serialize};

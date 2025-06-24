@@ -4,7 +4,8 @@ use anyhow::Result;
 use clap::Args;
 use chrono::{DateTime, Utc, Duration};
 use crate::data_paths::DataPaths;
-use crate::portfolio::{get_portfolio_service_handle, TradesFormatter};
+use crate::core::portfolio::cli::get_portfolio_service_handle;
+use crate::core::portfolio::display::TradesFormatter;
 use tracing::info;
 
 #[derive(Args, Debug)]
@@ -82,10 +83,10 @@ pub async fn trades(args: TradesArgs, host: &str, data_paths: DataPaths) -> Resu
     println!("  Total Fees: ${:.2}", total_fees);
     
     let buy_trades: Vec<_> = trades.iter()
-        .filter(|t| matches!(t.side, crate::portfolio::OrderSide::Buy))
+        .filter(|t| matches!(t.side, crate::core::portfolio::OrderSide::Buy))
         .collect();
     let sell_trades: Vec<_> = trades.iter()
-        .filter(|t| matches!(t.side, crate::portfolio::OrderSide::Sell))
+        .filter(|t| matches!(t.side, crate::core::portfolio::OrderSide::Sell))
         .collect();
     
     println!("  Buy Trades: {} (${:.2} volume)", 
@@ -145,7 +146,7 @@ fn parse_date(date_str: &str) -> Result<DateTime<Utc>> {
     ))
 }
 
-fn export_trades_to_csv(trades: &[crate::portfolio::TradeExecution], filename: &str) -> Result<()> {
+fn export_trades_to_csv(trades: &[crate::core::portfolio::TradeExecution], filename: &str) -> Result<()> {
     use std::fs::File;
     use std::io::Write;
     
@@ -164,8 +165,8 @@ fn export_trades_to_csv(trades: &[crate::portfolio::TradeExecution], filename: &
             trade.market_id,
             trade.token_id,
             match trade.side {
-                crate::portfolio::OrderSide::Buy => "BUY",
-                crate::portfolio::OrderSide::Sell => "SELL",
+                crate::core::portfolio::OrderSide::Buy => "BUY",
+                crate::core::portfolio::OrderSide::Sell => "SELL",
             },
             trade.price,
             trade.size,

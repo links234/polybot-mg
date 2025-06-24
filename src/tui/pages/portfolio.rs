@@ -1,4 +1,4 @@
-use crate::portfolio::types::{Position, PositionSide, PositionStatus};
+use crate::core::portfolio::types::{Position, PositionSide, PositionStatus};
 use crate::tui::App;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{

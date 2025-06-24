@@ -1,7 +1,7 @@
 //! Unified dataset and selection TUI interface
 
 use crate::data_paths::DataPaths;
-use crate::datasets::selection::{ImplicitSelection, SelectionManager, TokenSelection};
+use crate::markets::datasets::selection::{ImplicitSelection, SelectionManager, TokenSelection};
 use crate::storage::{DatasetDiscovery, DiscoveredDataset};
 use anyhow::Result;
 use crossterm::{

@@ -10,8 +10,8 @@ use tracing::{error, info, warn};
 use crate::config;
 use crate::data_paths::DataPaths;
 use crate::ethereum_utils;
-use crate::execution::orders::{EnhancedOrder, OrderManager};
-use crate::portfolio::{PortfolioStats, PortfolioStorage, Position};
+use crate::core::execution::orders::{EnhancedOrder, OrderManager};
+use crate::core::portfolio::{PortfolioStats, PortfolioStorage, Position};
 
 /// Placeholder for balance information - would need proper implementation
 #[derive(Debug, Clone)]
@@ -179,7 +179,7 @@ impl PortfolioService {
                 }
 
                 // Convert EnhancedOrder to PolymarketOrder for storage compatibility
-                let poly_orders: Vec<crate::portfolio::orders_api::PolymarketOrder> =
+                let poly_orders: Vec<crate::core::portfolio::api::orders::PolymarketOrder> =
                     fetched_orders
                         .iter()
                         .map(|enhanced_order| {
@@ -208,7 +208,7 @@ impl PortfolioService {
                 }
 
                 // Try to fetch and update balance information
-                match crate::portfolio::orders_api::fetch_balance(
+                match crate::core::portfolio::api::orders::fetch_balance(
                     &self.host,
                     &self.data_paths,
                     &user_address,
@@ -258,10 +258,10 @@ impl PortfolioService {
     /// Update positions from orders using the portfolio reconciler
     async fn update_positions_from_orders(
         &self,
-        orders: &[crate::portfolio::orders_api::PolymarketOrder],
-        portfolio_storage: &crate::portfolio::PortfolioStorage,
+        orders: &[crate::core::portfolio::api::orders::PolymarketOrder],
+        portfolio_storage: &crate::core::portfolio::PortfolioStorage,
     ) -> Result<usize> {
-        use crate::portfolio::PositionReconciler;
+        use crate::core::portfolio::controller::PositionReconciler;
 
         // Use position reconciler to generate positions from orders
         let mut reconciler = PositionReconciler::new();
@@ -289,8 +289,8 @@ impl PortfolioService {
     /// Convert EnhancedOrder to PolymarketOrder for storage compatibility
     fn convert_enhanced_to_polymarket_order(
         &self,
-        enhanced: &crate::execution::orders::EnhancedOrder,
-    ) -> crate::portfolio::orders_api::PolymarketOrder {
+        enhanced: &crate::core::execution::orders::EnhancedOrder,
+    ) -> crate::core::portfolio::api::orders::PolymarketOrder {
         use rust_decimal::prelude::FromPrimitive;
         use rust_decimal::Decimal;
 
@@ -357,23 +357,23 @@ impl PortfolioService {
 
         // Convert side
         let side = match enhanced.side {
-            crate::execution::orders::OrderSide::Buy => "BUY".to_string(),
-            crate::execution::orders::OrderSide::Sell => "SELL".to_string(),
+            crate::core::execution::orders::OrderSide::Buy => "BUY".to_string(),
+            crate::core::execution::orders::OrderSide::Sell => "SELL".to_string(),
         };
 
         // Convert status
         let status = match enhanced.status {
-            crate::execution::orders::OrderStatus::Open => "OPEN".to_string(),
-            crate::execution::orders::OrderStatus::Filled => "FILLED".to_string(),
-            crate::execution::orders::OrderStatus::Cancelled => "CANCELLED".to_string(),
-            crate::execution::orders::OrderStatus::PartiallyFilled => {
+            crate::core::execution::orders::OrderStatus::Open => "OPEN".to_string(),
+            crate::core::execution::orders::OrderStatus::Filled => "FILLED".to_string(),
+            crate::core::execution::orders::OrderStatus::Cancelled => "CANCELLED".to_string(),
+            crate::core::execution::orders::OrderStatus::PartiallyFilled => {
                 "PARTIALLY_FILLED".to_string()
             }
-            crate::execution::orders::OrderStatus::Rejected => "REJECTED".to_string(),
-            crate::execution::orders::OrderStatus::Pending => "PENDING".to_string(),
+            crate::core::execution::orders::OrderStatus::Rejected => "REJECTED".to_string(),
+            crate::core::execution::orders::OrderStatus::Pending => "PENDING".to_string(),
         };
 
-        crate::portfolio::orders_api::PolymarketOrder {
+        crate::core::portfolio::api::orders::PolymarketOrder {
             id: enhanced.id.clone(),
             owner,
             market,

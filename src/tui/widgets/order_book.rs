@@ -1,4 +1,4 @@
-use crate::execution::orderbook::PriceLevel;
+use crate::core::types::market::PriceLevel;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},

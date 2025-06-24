@@ -17,7 +17,7 @@ use ratatui::{
 use std::io::{self, Stdout};
 use tracing::info;
 
-use crate::datasets::DatasetType;
+use crate::markets::datasets::DatasetType;
 use crate::storage::DatasetDiscovery;
 
 #[allow(dead_code)]

@@ -4,8 +4,6 @@
 //! and manipulation, ensuring CLAUDE.md compliance with "no tuples in public APIs".
 
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
-use tracing::{debug, warn};
 use crate::core::types::market::PriceLevel;
 
 /// Market depth information showing bid and ask level counts
@@ -103,14 +101,6 @@ mod tests {
         assert_eq!(depth.ask_levels, 3);
         assert_eq!(depth.total_levels(), 8);
         assert!(depth.has_liquidity());
-    }
-
-    #[test]
-    fn test_spread_info() {
-        let spread = SpreadInfo::normal_market(dec!(0.4), dec!(0.6), 50.0);
-        assert!(spread.description.contains("Spread"));
-        assert!(spread.mid_price.is_some());
-        assert_eq!(spread.mid_price.unwrap(), dec!(0.5));
     }
 
     #[test]

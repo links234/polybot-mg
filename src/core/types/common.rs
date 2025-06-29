@@ -63,36 +63,7 @@ pub enum MarketStatus {
     Paused,
 }
 
-/// Common result type for market operations
-pub type MarketResult<T> = Result<T, MarketError>;
-
-/// Common error type for market operations
-#[derive(Debug, thiserror::Error)]
-pub enum MarketError {
-    #[error("Invalid market data: {0}")]
-    InvalidData(String),
-    
-    #[error("Market not found: {0}")]
-    NotFound(String),
-    
-    #[error("WebSocket error: {0}")]
-    WebSocket(String),
-    
-    #[error("Serialization error: {0}")]
-    Serialization(String),
-    
-    #[error("Network error: {0}")]
-    Network(String),
-    
-    #[error("Authentication error: {0}")]
-    Auth(String),
-    
-    #[error("Rate limit exceeded")]
-    RateLimit,
-    
-    #[error("Unknown error: {0}")]
-    Unknown(String),
-}
+// MarketResult and MarketError removed as unused
 
 /// Time interval for data aggregation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,9 +82,7 @@ pub struct PriceSize {
 }
 
 impl PriceSize {
-    pub fn new(price: Decimal, size: Decimal) -> Self {
-        Self { price, size }
-    }
+    // new method removed as unused
 }
 
 /// Timestamp wrapper for consistent time handling
@@ -121,21 +90,7 @@ impl PriceSize {
 pub struct Timestamp(pub u64);
 
 impl Timestamp {
-    pub fn now() -> Self {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let duration = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards");
-        Self(duration.as_millis() as u64)
-    }
-    
-    pub fn as_millis(&self) -> u64 {
-        self.0
-    }
-    
-    pub fn as_secs(&self) -> u64 {
-        self.0 / 1000
-    }
+    // Methods removed as unused
 }
 
 impl From<u64> for Timestamp {

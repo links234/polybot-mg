@@ -70,12 +70,7 @@ pub enum StreamError {
     // All variants removed as they are unused
 }
 
-/// Source health status
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SourceHealth {
-    // Removed unused variant 'Healthy'
-    Disconnected,
-}
+// SourceHealth enum removed as unused
 
 /// Stream statistics
 #[derive(Debug, Clone)]
@@ -109,7 +104,7 @@ struct WebSocketDataSource {
     _client: Option<Arc<WsClient>>,
     _event_tx: Option<mpsc::UnboundedSender<ExecutionEvent>>,
     _is_running: bool,
-    _health: SourceHealth,
+    // _health field removed with SourceHealth type
 }
 
 
@@ -209,7 +204,7 @@ struct ReplayDataSource {
     _filter_assets: Option<Vec<AssetId>>,
     _event_tx: Option<mpsc::UnboundedSender<ExecutionEvent>>,
     _is_running: bool,
-    _health: SourceHealth,
+    // _health field removed with SourceHealth type
     _current_position: usize,
     _total_events: usize,
 }
@@ -320,7 +315,7 @@ struct SimulationDataSource {
     _event_frequency: Duration,
     _event_tx: Option<mpsc::UnboundedSender<ExecutionEvent>>,
     _is_running: bool,
-    _health: SourceHealth,
+    // _health field removed with SourceHealth type
 }
 
 

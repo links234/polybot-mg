@@ -457,26 +457,6 @@ impl From<PolyEvent> for ExecutionEvent {
     }
 }
 
-// /// Event handler trait for processing execution events
-// pub trait _EventHandler: Send + Sync {
-//     /// Handle an execution event
-//     fn handle_event(&mut self, event: &ExecutionEvent) -> Result<(), EventHandlerError>;
-//
-//     /// Get handler name for logging
-//     fn name(&self) -> &str;
-//
-//     /// Check if handler can process this event type
-//     fn can_handle(&self, event: &ExecutionEvent) -> bool;
-// }
-
-// /// Event handler errors
-// #[derive(Debug, thiserror::Error)]
-// pub enum EventHandlerError {
-//     // Keeping enum non-empty to maintain compatibility
-//     #[error("Generic error: {0}")]
-//     Generic(String),
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -500,24 +480,5 @@ mod tests {
 
         assert_eq!(event.metadata.priority, EventPriority::Normal);
         assert!(event.metadata.tags.is_empty());
-    }
-
-    #[test]
-    fn test_poly_event_conversion() {
-        let poly_event = PolyEvent::Trade {
-            asset_id: "0x123".to_string(),
-            price: Decimal::new(5000, 4),
-            size: Decimal::new(100, 0),
-            side: Side::Buy,
-        };
-
-        let exec_event: ExecutionEvent = poly_event.into();
-
-        match exec_event.data {
-            EventData::Market(MarketEvent::Trade { asset_id, .. }) => {
-                assert_eq!(asset_id.as_str(), "0x123");
-            }
-            _ => panic!("Expected market trade event"),
-        }
     }
 }

@@ -26,14 +26,6 @@ pub struct PipelineRunner {
 }
 
 impl PipelineRunner {
-    /// Create a new pipeline runner with specified binary name
-    pub fn new(binary_name: String) -> Self {
-        Self {
-            binary_name,
-            verbose: false,
-        }
-    }
-
     /// Create a new pipeline runner with auto-detection of cargo vs binary execution
     pub fn new_auto() -> Self {
         let (binary_name, detection_info) = Self::detect_execution_method();
@@ -414,18 +406,5 @@ impl PipelineRunner {
 
         pipelines.sort();
         Ok(pipelines)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_pipeline_runner_creation() {
-        let runner = PipelineRunner::new("polybot".to_string()).with_verbose(true);
-
-        assert_eq!(runner.binary_name, "polybot");
-        assert!(runner.verbose);
     }
 }

@@ -135,6 +135,7 @@ impl RawDataStorage {
     }
 
     /// Store individual trade with unique ID
+    #[allow(dead_code)]
     pub async fn store_trade(&self, trade: &TradeExecution) -> Result<String> {
         let trade_id = &trade.trade_id;
         let file_path = self.base_path
@@ -176,29 +177,5 @@ impl RawDataStorage {
         Ok(trades)
     }
 
-    /// Load all orders
-    pub async fn load_all_orders(&self) -> Result<Vec<PolymarketOrder>> {
-        let order_dir = self.base_path.join("raw/order");
-        let mut orders = Vec::new();
-
-        if !order_dir.exists() {
-            return Ok(orders);
-        }
-
-        let mut entries = tokio::fs::read_dir(&order_dir).await?;
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                    if let Ok(order) = serde_json::from_str::<PolymarketOrder>(&content) {
-                        orders.push(order);
-                    } else {
-                        warn!("Failed to parse order file: {:?}", path);
-                    }
-                }
-            }
-        }
-
-        Ok(orders)
-    }
+    // load_all_orders method removed as unused
 }

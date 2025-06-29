@@ -14,9 +14,7 @@ impl EventId {
         Self(uuid::Uuid::new_v4().to_string())
     }
     
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
+    // as_str method removed as unused
 }
 
 impl Default for EventId {

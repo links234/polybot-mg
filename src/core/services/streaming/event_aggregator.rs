@@ -175,6 +175,7 @@ impl EventAggregator {
     }
 
     /// Stop the event aggregator and all running tasks
+    #[allow(dead_code)]
     pub async fn stop(&self) {
         info!("Stopping event aggregator");
         

@@ -648,9 +648,7 @@ mod tests {
 }
 */
 
-// Placeholder exports to avoid breaking other modules
-#[derive(Debug, Clone)]
-pub struct StrategyMetrics;
+// StrategyMetrics struct removed as unused
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]

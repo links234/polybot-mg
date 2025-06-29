@@ -66,16 +66,19 @@ impl TokenDistributor {
     }
 
     /// Get list of active worker IDs
+    #[allow(dead_code)]
     pub fn get_active_workers(&self) -> Vec<usize> {
         self.worker_assignments.keys().cloned().collect()
     }
 
     /// Get total number of tokens being tracked
+    #[allow(dead_code)]
     pub fn total_tokens(&self) -> usize {
         self.token_to_worker.len()
     }
 
     /// Get summary of distribution
+    #[allow(dead_code)]
     pub fn get_summary(&self) -> DistributionSummary {
         let workers: Vec<WorkerInfo> = self.worker_assignments
             .iter()
@@ -95,6 +98,7 @@ impl TokenDistributor {
     }
 
     /// Remove tokens and return distribution changes
+    #[allow(dead_code)]
     pub fn remove_tokens(&mut self, tokens: Vec<String>) -> DistributionUpdate {
         let mut update = DistributionUpdate::new();
 
@@ -151,6 +155,7 @@ impl TokenDistributor {
 
 /// Summary of token distribution across workers
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct DistributionSummary {
     pub total_workers: usize,
     pub total_tokens: usize,
@@ -160,6 +165,7 @@ pub struct DistributionSummary {
 
 /// Information about a specific worker
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct WorkerInfo {
     pub worker_id: usize,
     pub token_count: usize,

@@ -8,13 +8,7 @@ use std::fmt;
 pub struct AssetId(String);
 
 impl AssetId {
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-    
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
+    // new and as_str methods removed as unused
 }
 
 impl From<String> for AssetId {
@@ -40,13 +34,7 @@ impl fmt::Display for AssetId {
 pub struct MarketId(String);
 
 impl MarketId {
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-    
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
+    // new and as_str methods removed as unused
 }
 
 impl From<String> for MarketId {

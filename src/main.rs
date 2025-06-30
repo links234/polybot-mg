@@ -15,6 +15,7 @@ mod logging;
 mod markets;
 mod pipeline;
 mod storage;
+mod strategy;
 mod tui;
 mod typed_store;
 mod types;

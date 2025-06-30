@@ -9,7 +9,7 @@ use thiserror::Error;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::{interval, Instant, MissedTickBehavior};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 #[derive(Error, Debug)]
 pub enum WsError {
@@ -225,7 +225,7 @@ impl WsClient {
 
                             // Try to parse as different formats to understand the structure
                             if text.trim() == "[]" {
-                                debug!("Received empty array - likely subscription confirmation or no data");
+                                trace!("WebSocket heartbeat - subscription active, no new events");
                                 continue;
                             }
 

@@ -63,17 +63,6 @@ pub enum MarketStatus {
     Paused,
 }
 
-// MarketResult and MarketError removed as unused
-
-/// Time interval for data aggregation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TimeInterval {
-    Second(u32),
-    Minute(u32),
-    Hour(u32),
-    Day(u32),
-}
-
 /// Price and size representation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PriceSize {
@@ -81,17 +70,9 @@ pub struct PriceSize {
     pub size: Decimal,
 }
 
-impl PriceSize {
-    // new method removed as unused
-}
-
 /// Timestamp wrapper for consistent time handling
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Timestamp(pub u64);
-
-impl Timestamp {
-    // Methods removed as unused
-}
 
 impl From<u64> for Timestamp {
     fn from(millis: u64) -> Self {

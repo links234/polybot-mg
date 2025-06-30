@@ -12,6 +12,7 @@ pub mod logging;
 pub mod markets;
 pub mod pipeline;
 pub mod storage;
+pub mod strategy;
 pub mod tui;
 pub mod types;
 pub mod address_book;

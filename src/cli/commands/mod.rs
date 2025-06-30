@@ -24,6 +24,7 @@ pub mod orders;
 pub mod pipeline;
 pub mod portfolio;
 pub mod portfolio_tui;
+pub mod run_strategy;
 pub mod sell;
 pub mod stream;
 pub mod version;

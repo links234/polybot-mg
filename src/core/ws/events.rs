@@ -196,7 +196,7 @@ pub struct TradeEvent {
 pub struct UserOrderEvent {
     pub order_id: String,
     pub asset_id: String,
-    pub _market: String,
+    pub market: String,
     pub side: Side,
     #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
@@ -206,11 +206,11 @@ pub struct UserOrderEvent {
         deserialize_with = "deserialize_decimal_flexible",
         alias = "size_matched"
     )]
-    pub _filled_size: Decimal,
+    pub filled_size: Decimal,
     pub status: OrderStatus,
     #[serde(rename = "type")]
-    pub _order_type: String, // PLACEMENT, UPDATE, CANCELLATION
-    pub _timestamp: u64,
+    pub order_type: String, // PLACEMENT, UPDATE, CANCELLATION
+    pub timestamp: u64,
 }
 
 /// User trade event
@@ -219,14 +219,14 @@ pub struct UserTradeEvent {
     pub trade_id: String,
     pub order_id: String,
     pub asset_id: String,
-    pub _market: String,
+    pub market: String,
     pub side: Side,
     #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub price: Decimal,
     #[serde(deserialize_with = "deserialize_decimal_flexible")]
     pub size: Decimal,
     pub timestamp: u64,
-    pub _status: String, // MINED, CONFIRMED, RETRYING, FAILED
+    pub status: String, // MINED, CONFIRMED, RETRYING, FAILED
 }
 
 /// Last trade price event

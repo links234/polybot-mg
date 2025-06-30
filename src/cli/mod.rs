@@ -33,6 +33,7 @@ use commands::markets::{MarketsArgs, MarketsCommand};
 use commands::orders::{OrdersArgs, OrdersCommand};
 use commands::pipeline::{PipelineArgs, PipelineCommand};
 use commands::portfolio::PortfolioArgs;
+use commands::run_strategy::{RunStrategyArgs, RunStrategyCommand};
 use commands::sell::{SellArgs, SellCommand};
 use commands::stream::{StreamArgs, StreamCommand};
 use commands::version::{VersionArgs, VersionCommand};
@@ -100,6 +101,9 @@ pub enum Commands {
 
     /// Stream real-time market data via WebSocket
     Stream(StreamArgs),
+    
+    /// Run a trading strategy on a single token
+    RunStrategy(RunStrategyArgs),
 
     /// Launch the egui-based trading canvas interface
     Canvas(CanvasArgs),
@@ -175,6 +179,7 @@ impl Cli {
                 commands::portfolio::portfolio(args, host, data_paths).await
             }
             Commands::Stream(args) => StreamCommand::new(args).execute(host, data_paths).await,
+            Commands::RunStrategy(args) => RunStrategyCommand::new(args).execute(host, &data_paths).await,
             Commands::Canvas(args) => CanvasCommand::new(args).execute(host, data_paths).await,
             Commands::Daemon(args) => DaemonCommand::new(args).execute(host, data_paths).await,
             Commands::Pipeline(args) => PipelineCommand::new(args).execute(host, data_paths).await,

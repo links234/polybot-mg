@@ -4,13 +4,53 @@ use polymarket_rs_client::{ClobClient, OrderArgs, Side};
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
-/// Order management system with strongly typed operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use crate::core::portfolio::controller::manager::PortfolioManager;
+
+// Type alias for cleaner API
+pub type Portfolio = PortfolioManager;
+
+/// Central coordinator providing access to order and portfolio managers
+/// This struct is shared between multiple strategies
+#[derive(Clone)]
+pub struct PolyBot {
+    pub order: Arc<OrderManager>,
+    pub portfolio: Arc<Portfolio>,
+}
+
+impl PolyBot {
+    /// Create new PolyBot instance with default configurations
+    pub fn new() -> Self {
+        Self {
+            order: Arc::new(OrderManager::new()),
+            portfolio: Arc::new(Portfolio::new()),
+        }
+    }
+
+    /// Create PolyBot with custom order configuration
+    pub fn with_order_config(order_config: OrderConfig) -> Self {
+        Self {
+            order: Arc::new(OrderManager::with_config(order_config)),
+            portfolio: Arc::new(Portfolio::new()),
+        }
+    }
+}
+
+/// Thread-safe order management system with strongly typed operations
+#[derive(Clone)]
 pub struct OrderManager {
-    pub config: OrderConfig,
-    pub statistics: OrderStatistics,
+    state: Arc<RwLock<OrderManagerState>>,
+}
+
+/// Internal state of the order manager
+#[derive(Debug)]
+struct OrderManagerState {
+    config: OrderConfig,
+    statistics: OrderStatistics,
+    active_orders: HashMap<String, EnhancedOrder>,
 }
 
 /// Configuration for order operations
@@ -161,16 +201,73 @@ impl Default for OrderConfig {
     }
 }
 
-#[allow(dead_code)]
+// Strategy-related types have been moved to src/strategy/mod.rs
+
 impl OrderManager {
+    /// Create new order manager with default configuration
     pub fn new() -> Self {
         Self {
-            config: OrderConfig::default(),
-            statistics: OrderStatistics {
-                session_start_time: Some(Utc::now()),
-                ..Default::default()
-            },
+            state: Arc::new(RwLock::new(OrderManagerState {
+                config: OrderConfig::default(),
+                statistics: OrderStatistics {
+                    session_start_time: Some(Utc::now()),
+                    ..Default::default()
+                },
+                active_orders: HashMap::new(),
+            })),
         }
+    }
+    
+    /// Create new order manager with custom configuration
+    pub fn with_config(config: OrderConfig) -> Self {
+        Self {
+            state: Arc::new(RwLock::new(OrderManagerState {
+                config,
+                statistics: OrderStatistics {
+                    session_start_time: Some(Utc::now()),
+                    ..Default::default()
+                },
+                active_orders: HashMap::new(),
+            })),
+        }
+    }
+    
+    /// Get current statistics (thread-safe)
+    pub async fn get_statistics(&self) -> OrderStatistics {
+        let state = self.state.read().await;
+        state.statistics.clone()
+    }
+    
+    /// Get current configuration (thread-safe)
+    pub async fn get_config(&self) -> OrderConfig {
+        let state = self.state.read().await;
+        state.config.clone()
+    }
+    
+    /// Get all active orders (thread-safe)
+    pub async fn get_active_orders(&self) -> Vec<EnhancedOrder> {
+        let state = self.state.read().await;
+        state.active_orders.values().cloned().collect()
+    }
+    
+    /// Add order to active tracking
+    async fn track_order(&self, order: EnhancedOrder) {
+        let mut state = self.state.write().await;
+        state.active_orders.insert(order.id.clone(), order);
+    }
+    
+    /// Remove order from active tracking
+    async fn untrack_order(&self, order_id: &str) -> Option<EnhancedOrder> {
+        let mut state = self.state.write().await;
+        state.active_orders.remove(order_id)
+    }
+    
+    /// Update statistics (thread-safe)
+    async fn update_statistics<F>(&self, update_fn: F) 
+    where F: FnOnce(&mut OrderStatistics)
+    {
+        let mut state = self.state.write().await;
+        update_fn(&mut state.statistics);
     }
 
     /// Fetch orders directly from the Polymarket API using HTTP authentication
@@ -390,10 +487,9 @@ impl OrderManager {
         }
     }
 
-    /// Place a buy order with comprehensive response handling
-    #[allow(dead_code)]
+    /// Place a buy order with comprehensive response handling (thread-safe)
     pub async fn place_buy_order(
-        &mut self,
+        &self,
         client: &mut ClobClient,
         token_id: &str,
         price: Decimal,
@@ -403,10 +499,9 @@ impl OrderManager {
             .await
     }
 
-    /// Place a sell order with comprehensive response handling
-    #[allow(dead_code)]
+    /// Place a sell order with comprehensive response handling (thread-safe)
     pub async fn place_sell_order(
-        &mut self,
+        &self,
         client: &mut ClobClient,
         token_id: &str,
         price: Decimal,
@@ -416,9 +511,9 @@ impl OrderManager {
             .await
     }
 
-    /// Internal order placement logic
+    /// Internal order placement logic (thread-safe)
     async fn place_order_internal(
-        &mut self,
+        &self,
         client: &mut ClobClient,
         token_id: &str,
         price: Decimal,
@@ -449,31 +544,62 @@ impl OrderManager {
             token_id: token_id.to_string(),
         };
 
-        // Update statistics
-        self.statistics.orders_placed += 1;
+        // Update statistics (thread-safe)
+        self.update_statistics(|stats| {
+            stats.orders_placed += 1;
+        }).await;
 
         // Create and post order
         let response = client.create_and_post_order(&args).await?;
         let parsed_response =
-            Self::parse_order_response(response, token_id, side, price, size, placement_time)?;
+            Self::parse_order_response(response, token_id, &side, price, size, placement_time)?;
 
-        // Update statistics based on result
+        // Update statistics based on result (thread-safe)
+        let volume = size.to_f64().unwrap_or(0.0);
         if parsed_response.success {
-            self.statistics.successful_orders += 1;
-            self.statistics.total_volume_traded += size.to_f64().unwrap_or(0.0);
+            self.update_statistics(|stats| {
+                stats.successful_orders += 1;
+                stats.total_volume_traded += volume;
+            }).await;
+            
+            // Track successful order
+            if let Some(ref details) = parsed_response.order_details {
+                let enhanced_order = EnhancedOrder {
+                    id: details.order_id.clone(),
+                    asset_id: token_id.to_string(),
+                    side: side.clone(),
+                    price: details.price,
+                    size: details.size,
+                    original_size: details.size,
+                    filled_size: 0.0,
+                    remaining_size: details.size,
+                    status: OrderStatus::Open,
+                    created_at: details.created_at,
+                    updated_at: None,
+                    filled_at: None,
+                    cancelled_at: None,
+                    fees_paid: None,
+                    average_fill_price: None,
+                    market_info: None,
+                    additional_fields: HashMap::new(),
+                };
+                self.track_order(enhanced_order).await;
+            }
         } else {
-            self.statistics.failed_orders += 1;
+            self.update_statistics(|stats| {
+                stats.failed_orders += 1;
+            }).await;
         }
 
         // Display result
-        self.display_order_result(&parsed_response);
+        Self::display_order_result(&parsed_response);
 
         Ok(parsed_response)
     }
 
-    /// Cancel an order with comprehensive response handling
+    /// Cancel an order with comprehensive response handling (thread-safe)
     pub async fn cancel_order(
-        &mut self,
+        &self,
         client: &mut ClobClient,
         order_id: &str,
     ) -> Result<OrderCancellationResponse> {
@@ -486,11 +612,18 @@ impl OrderManager {
         let parsed_response =
             Self::parse_cancellation_response(response, order_id, cancellation_time)?;
 
-        // Update statistics
-        self.statistics.orders_cancelled += 1;
+        // Update statistics (thread-safe)
+        self.update_statistics(|stats| {
+            stats.orders_cancelled += 1;
+        }).await;
+        
+        // Remove from active tracking if successful
+        if parsed_response.success {
+            self.untrack_order(order_id).await;
+        }
 
         // Display result
-        self.display_cancellation_result(&parsed_response);
+        Self::display_cancellation_result(&parsed_response);
 
         Ok(parsed_response)
     }
@@ -523,7 +656,8 @@ impl OrderManager {
         };
 
         // Display orders
-        self.display_order_list(&response);
+        let config = self.get_config().await;
+        Self::display_order_list(&response, &config);
 
         Ok(response)
     }
@@ -532,7 +666,7 @@ impl OrderManager {
     fn parse_order_response(
         response: serde_json::Value,
         token_id: &str,
-        side: OrderSide,
+        side: &OrderSide,
         price: Decimal,
         size: Decimal,
         placement_time: DateTime<Utc>,
@@ -551,7 +685,7 @@ impl OrderManager {
             order_id.map(|id| PlacedOrderDetails {
                 order_id: id,
                 token_id: token_id.to_string(),
-                side,
+                side: side.clone(),
                 price: price.to_f64().unwrap_or(0.0),
                 size: size.to_f64().unwrap_or(0.0),
                 status: OrderStatus::Open,
@@ -687,8 +821,8 @@ impl OrderManager {
             .collect()
     }
 
-    /// Display order placement result
-    fn display_order_result(&self, response: &OrderPlacementResponse) {
+    /// Display order placement result (static method)
+    fn display_order_result(response: &OrderPlacementResponse) {
         if response.success {
             info!("\n✅ Order placed successfully!");
             if let Some(ref order_id) = response.order_id {
@@ -708,8 +842,8 @@ impl OrderManager {
         }
     }
 
-    /// Display order cancellation result
-    fn display_cancellation_result(&self, response: &OrderCancellationResponse) {
+    /// Display order cancellation result (static method)
+    fn display_cancellation_result(response: &OrderCancellationResponse) {
         if response.success {
             info!("\n✅ Order cancelled successfully!");
             if response.was_partially_filled {
@@ -725,8 +859,8 @@ impl OrderManager {
         }
     }
 
-    /// Display order list
-    fn display_order_list(&self, response: &OrderListResponse) {
+    /// Display order list (static method)
+    fn display_order_list(response: &OrderListResponse, config: &OrderConfig) {
         if response.orders.is_empty() {
             info!("No orders found matching criteria.");
             return;
@@ -793,7 +927,7 @@ impl OrderManager {
         }
 
         // Summary
-        if self.config.enable_detailed_logging {
+        if config.enable_detailed_logging {
             info!("\nOrder Summary:");
             let buy_count = response
                 .orders
@@ -816,6 +950,7 @@ impl OrderManager {
 }
 
 /// Legacy function wrappers for backward compatibility
+/// Note: These create new manager instances and don't maintain state
 #[allow(dead_code)]
 pub async fn place_buy_order(
     client: &mut ClobClient,
@@ -823,7 +958,7 @@ pub async fn place_buy_order(
     price: Decimal,
     size: Decimal,
 ) -> Result<()> {
-    let mut manager = OrderManager::new();
+    let manager = OrderManager::new();
     manager
         .place_buy_order(client, token_id, price, size)
         .await?;
@@ -837,7 +972,7 @@ pub async fn place_sell_order(
     price: Decimal,
     size: Decimal,
 ) -> Result<()> {
-    let mut manager = OrderManager::new();
+    let manager = OrderManager::new();
     manager
         .place_sell_order(client, token_id, price, size)
         .await?;
@@ -846,7 +981,7 @@ pub async fn place_sell_order(
 
 #[allow(dead_code)]
 pub async fn cancel_order(client: &mut ClobClient, order_id: &str) -> Result<()> {
-    let mut manager = OrderManager::new();
+    let manager = OrderManager::new();
     manager.cancel_order(client, order_id).await?;
     Ok(())
 }
@@ -861,3 +996,5 @@ pub async fn list_orders(client: ClobClient, token_id: Option<String>) -> Result
     manager.list_orders(client, filters).await?;
     Ok(())
 }
+
+// Example strategy implementation has been moved to src/strategy/simple_strategy.rs

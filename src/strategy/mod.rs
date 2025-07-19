@@ -6,6 +6,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use rust_decimal::Decimal;
+use std::sync::Arc;
+use polymarket_rs_client::ClobClient;
 
 use crate::core::types::common::Side;
 use crate::core::ws::{OrderBook, PolyEvent};
@@ -57,9 +59,18 @@ pub trait SingleTokenStrategy: Send + Sync {
     /// Called when a trade event occurs
     async fn trade_event(&self, trade: &TradeEvent) -> Result<()>;
     
+    /// Set the ClobClient for order placement
+    fn set_clob_client(&mut self, client: Arc<tokio::sync::Mutex<ClobClient>>);
+    
+    /// Process any pending orders that need to be placed
+    async fn process_pending_orders(&self) -> Result<()>;
+    
     /// Get strategy name for logging
     fn name(&self) -> &str;
     
     /// Token ID this strategy is responsible for
     fn token_id(&self) -> &str;
+    
+    /// Shutdown the strategy gracefully
+    async fn shutdown(&self) -> Result<()>;
 }

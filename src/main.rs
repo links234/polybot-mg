@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
     let cli = cli::Cli::parse();
 
     // Execute with error handling
-    match cli.execute().await {
+    let result = match cli.execute().await {
         Ok(()) => {
             logging::log_session_end();
             Ok(())
@@ -49,5 +49,10 @@ async fn main() -> Result<()> {
             logging::log_session_end();
             Err(e)
         }
-    }
+    };
+    
+    // Give a final moment for async tasks to complete
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    
+    result
 }

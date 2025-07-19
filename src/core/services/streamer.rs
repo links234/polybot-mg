@@ -189,6 +189,7 @@ impl Streamer {
         let rest_client = self.rest_client.clone();
         let auto_sync = self.config.auto_sync_on_hash_mismatch;
         let skip_hash_verification = self.config.ws_config.skip_hash_verification;
+        let quiet_hash_mismatch = self.config.ws_config.quiet_hash_mismatch;
 
         let task = tokio::spawn(async move {
             info!("Market data feed task started, waiting for messages...");
@@ -205,6 +206,7 @@ impl Streamer {
                     &rest_client,
                     auto_sync,
                     skip_hash_verification,
+                    quiet_hash_mismatch,
                 )
                 .await;
             }
@@ -252,6 +254,7 @@ impl Streamer {
         rest_client: &Option<Arc<ClobClient>>,
         auto_sync: bool,
         skip_hash_verification: bool,
+        quiet_hash_mismatch: bool,
     ) {
         match parse_message(&ws_message) {
             Ok(events) => {
@@ -259,6 +262,8 @@ impl Streamer {
                     match &event {
                         PolyEvent::Book {
                             asset_id,
+                            market,
+                            timestamp,
                             bids,
                             asks,
                             hash,
@@ -271,6 +276,8 @@ impl Streamer {
                             );
                             Self::handle_book_event(
                                 asset_id,
+                                market,
+                                *timestamp,
                                 bids,
                                 asks,
                                 hash,
@@ -278,6 +285,7 @@ impl Streamer {
                                 rest_client,
                                 auto_sync,
                                 skip_hash_verification,
+                                quiet_hash_mismatch,
                             )
                             .await;
                         }
@@ -428,6 +436,8 @@ impl Streamer {
     /// Handle order book snapshot event
     async fn handle_book_event(
         asset_id: &str,
+        market: &str,
+        timestamp: u64,
         bids: &[PriceLevel],
         asks: &[PriceLevel],
         hash: &str,
@@ -435,32 +445,51 @@ impl Streamer {
         _rest_client: &Option<Arc<ClobClient>>,
         _auto_sync: bool,
         skip_hash_verification: bool,
+        quiet_hash_mismatch: bool,
     ) {
         let mut book = order_books
             .entry(asset_id.to_string())
             .or_insert_with(|| OrderBook::new(asset_id.to_string()));
 
+        // Apply snapshot based on hash verification setting
         if skip_hash_verification {
-            // Skip hash verification - apply directly
-            book.replace_with_snapshot_no_hash(bids.to_vec(), asks.to_vec());
+            book.replace_with_snapshot_no_hash(
+                market.to_string(),
+                timestamp,
+                bids.to_vec(),
+                asks.to_vec(),
+            );
             debug!(
                 "Order book snapshot applied (no hash verification) for {}",
                 asset_id
             );
         } else {
-            match book.replace_with_snapshot(bids.to_vec(), asks.to_vec(), hash.to_string()) {
-                Ok(()) => {
-                    debug!("Order book snapshot applied for {}", asset_id);
-                }
-                Err(e) => {
+            if let Err(e) = book.replace_with_snapshot(
+                market.to_string(),
+                timestamp,
+                bids.to_vec(),
+                asks.to_vec(),
+                hash.to_string(),
+            ) {
+                if !quiet_hash_mismatch {
                     warn!(
-                        "Failed to apply order book snapshot for {}: {}",
+                        "Failed to apply book snapshot with hash verification for {}: {}",
                         asset_id, e
                     );
-                    // Fallback to no hash validation
-                    warn!("Applying snapshot without hash validation for {}", asset_id);
-                    book.replace_with_snapshot_no_hash(bids.to_vec(), asks.to_vec());
                 }
+                // Fallback to no-hash method if verification fails
+                book.replace_with_snapshot_no_hash(
+                    market.to_string(),
+                    timestamp,
+                    bids.to_vec(),
+                    asks.to_vec(),
+                );
+                debug!(
+                    "Order book snapshot applied (fallback no hash) for {}",
+                    asset_id
+                );
+            } else {
+                debug!("Order book snapshot applied successfully for {}", asset_id);
             }
         }
 
@@ -600,7 +629,12 @@ impl Streamer {
                         .entry(asset_id.clone())
                         .or_insert_with(|| OrderBook::new(asset_id.clone()));
 
-                    book.replace_with_snapshot_no_hash(bids, asks);
+                    book.replace_with_snapshot_no_hash(
+                        String::new(), // Empty market for initial fetch
+                        0,             // Zero timestamp for initial fetch
+                        bids,
+                        asks,
+                    );
 
                     // Validate and clean the orderbook
                     if book.validate_and_clean() {

@@ -26,10 +26,25 @@ pub struct OrderSummary {
 impl OrderSummary {
     /// Create new OrderSummary from Decimal values
     pub fn new(price: Decimal, size: Decimal) -> Self {
+        // Format numbers to match Polymarket's format
+        // Integers are shown without decimals, decimals keep their precision
+        let format_price = |d: Decimal| -> String {
+            // Always keep price as-is
+            d.to_string()
+        };
+        
+        let format_size = |d: Decimal| -> String {
+            // For size, if it's a whole number, show without decimal
+            if d.fract().is_zero() {
+                d.trunc().to_string()
+            } else {
+                d.to_string()
+            }
+        };
+        
         Self {
-            price: price.to_string(),
-            // Size must be an integer string for Polymarket hash compatibility
-            size: size.trunc().to_string(),
+            price: format_price(price),
+            size: format_size(size),
         }
     }
 
@@ -46,17 +61,28 @@ impl OrderSummary {
     }
 }
 
-/// Full book; only bids & asks are hashed (Polymarket-compatible)
+/// Full book for hash calculation - matches Polymarket Python client exactly
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolymarketOrderBook {
+    pub market: String,
+    pub asset_id: String,
     pub bids: Vec<OrderSummary>,
     pub asks: Vec<OrderSummary>,
+    pub timestamp: u64,
+    pub hash: String,
 }
 
 impl PolymarketOrderBook {
-    /// Create a new book (convenience).
-    pub fn new(bids: Vec<OrderSummary>, asks: Vec<OrderSummary>) -> Self {
-        Self { bids, asks }
+    /// Create a new book matching Polymarket Python client field order.
+    pub fn new(market: String, asset_id: String, timestamp: u64, bids: Vec<OrderSummary>, asks: Vec<OrderSummary>) -> Self {
+        Self { 
+            market,
+            asset_id,
+            bids, 
+            asks,
+            timestamp,
+            hash: String::new(),
+        }
     }
 
     /// Compute the Polymarket SHA-1 order-book hash.
@@ -75,12 +101,23 @@ impl PolymarketOrderBook {
                 .unwrap_or(Ordering::Equal)
         });
 
-        // 2 — canonical JSON
-        let canonical = PolymarketOrderBook { bids, asks };
-        let json = serde_json::to_vec(&canonical).expect("serialising order‑book to JSON");
-
-        // 3 — SHA‑1 digest → hex
-        let digest = Sha1::digest(&json);
+        // 2 — Create orderbook with exact field order as Python implementation
+        let canonical = PolymarketOrderBook { 
+            market: self.market.clone(),
+            asset_id: self.asset_id.clone(),
+            bids, 
+            asks,
+            timestamp: self.timestamp,
+            hash: String::new(),
+        };
+        
+        // 3 — Serialize to JSON with compact separators (matching Python)
+        // Use to_vec() and then String::from_utf8() to ensure no extra spaces
+        let json_bytes = serde_json::to_vec(&canonical).expect("serialising order‑book to JSON");
+        let json = String::from_utf8(json_bytes).expect("valid UTF-8");
+        
+        // 4 — SHA‑1 digest → hex
+        let digest = Sha1::digest(json.as_bytes());
         format!("{:x}", digest) // 40‑char lower‑case hex
     }
 }
@@ -90,6 +127,10 @@ impl PolymarketOrderBook {
 pub struct OrderBook {
     /// Asset ID this order book represents
     pub asset_id: String,
+    /// Market this order book belongs to
+    pub market: String,
+    /// Last update timestamp
+    pub timestamp: u64,
     /// Bid levels (price -> size), sorted descending by price
     pub bids: BTreeMap<Decimal, Decimal>,
     /// Ask levels (price -> size), sorted ascending by price
@@ -105,6 +146,8 @@ impl OrderBook {
     pub fn new(asset_id: String) -> Self {
         Self {
             asset_id,
+            market: String::new(),
+            timestamp: 0,
             bids: BTreeMap::new(),
             asks: BTreeMap::new(),
             last_hash: None,
@@ -115,10 +158,15 @@ impl OrderBook {
     /// Replace order book with new snapshot
     pub fn replace_with_snapshot(
         &mut self,
+        market: String,
+        timestamp: u64,
         bids: Vec<PriceLevel>,
         asks: Vec<PriceLevel>,
         hash: String,
     ) -> Result<(), StateError> {
+        // Update market and timestamp
+        self.market = market;
+        self.timestamp = timestamp;
         // Clear existing data
         self.bids.clear();
         self.asks.clear();
@@ -139,12 +187,20 @@ impl OrderBook {
         // Verify hash using Polymarket-compatible calculation
         let computed_hash = self.compute_polymarket_hash();
         if computed_hash != hash {
+            // Debug: show what we're hashing
+            let debug_json = self.debug_hash_json(
+                &self.bids.iter().map(|(&p, &s)| (p, s)).collect::<Vec<_>>(),
+                &self.asks.iter().map(|(&p, &s)| (p, s)).collect::<Vec<_>>(),
+            );
             warn!(
                 asset_id = %self.asset_id,
                 expected = %hash,
                 computed = %computed_hash,
                 bids_count = self.bids.len(),
                 asks_count = self.asks.len(),
+                market = %self.market,
+                timestamp = self.timestamp,
+                json_hashed = %debug_json,
                 "Hash mismatch on snapshot"
             );
             return Err(StateError::HashMismatch {
@@ -164,7 +220,16 @@ impl OrderBook {
     }
 
     /// Replace order book with new snapshot without hash validation
-    pub fn replace_with_snapshot_no_hash(&mut self, bids: Vec<PriceLevel>, asks: Vec<PriceLevel>) {
+    pub fn replace_with_snapshot_no_hash(
+        &mut self,
+        market: String,
+        timestamp: u64,
+        bids: Vec<PriceLevel>,
+        asks: Vec<PriceLevel>,
+    ) {
+        // Update market and timestamp
+        self.market = market;
+        self.timestamp = timestamp;
         // Clear existing data
         self.bids.clear();
         self.asks.clear();
@@ -189,6 +254,7 @@ impl OrderBook {
             "Order book snapshot applied without hash validation"
         );
     }
+
 
     /// Apply a price change (add/update/remove level)
     pub fn apply_price_change(
@@ -453,7 +519,13 @@ impl OrderBook {
             .collect();
 
         // Create Polymarket-compatible order book and compute hash using the exact algorithm
-        let polymarket_book = PolymarketOrderBook::new(bids, asks);
+        let polymarket_book = PolymarketOrderBook::new(
+            self.market.clone(),
+            self.asset_id.clone(),
+            self.timestamp,
+            bids,
+            asks,
+        );
         polymarket_book.hash()
     }
 
@@ -469,7 +541,13 @@ impl OrderBook {
             .map(|(price, size)| OrderSummary::new(*price, *size))
             .collect();
 
-        let polymarket_book = PolymarketOrderBook::new(bids_summary, asks_summary);
+        let polymarket_book = PolymarketOrderBook::new(
+            self.market.clone(),
+            self.asset_id.clone(),
+            self.timestamp,
+            bids_summary,
+            asks_summary,
+        );
 
         // Show the sorted JSON that gets hashed
         let mut bids = polymarket_book.bids.clone();
@@ -485,7 +563,14 @@ impl OrderBook {
                 .unwrap_or(Ordering::Equal)
         });
 
-        let canonical = PolymarketOrderBook { bids, asks };
+        let canonical = PolymarketOrderBook { 
+            market: self.market.clone(),
+            asset_id: self.asset_id.clone(),
+            bids, 
+            asks,
+            timestamp: self.timestamp,
+            hash: String::new(),
+        };
         serde_json::to_string(&canonical).unwrap_or_else(|_| "ERROR".to_string())
     }
 

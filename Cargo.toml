@@ -74,6 +74,7 @@ ratatui = "0.29"
 crossterm = "0.29"
 uuid = { version = "1.17.0", features = ["v4"] }
 ctrlc = "3.4"
+clipboard = "0.5"  # For copying token IDs to clipboard
 
 # GUI dependencies
 eframe = "0.31.1"

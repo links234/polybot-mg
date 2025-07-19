@@ -4798,6 +4798,9 @@ impl TradingBehavior<'_> {
                                                     "MY_TRADE",
                                                 );
                                             }
+                                            PolyEvent::Unknown { .. } => {
+                                                ui.colored_label(egui::Color32::RED, "UNKNOWN");
+                                            }
                                         }
 
                                         // Extract data for table columns
@@ -4856,6 +4859,12 @@ impl TradingBehavior<'_> {
                                                 Some(*price),
                                                 Some(*size),
                                                 Some(format!("{:?}", side)),
+                                            ),
+                                            PolyEvent::Unknown { .. } => (
+                                                "unknown".to_string(),
+                                                None,
+                                                None,
+                                                None,
                                             ),
                                         };
 
@@ -5277,6 +5286,9 @@ impl TradingBehavior<'_> {
                                                     "MY_TRADE",
                                                 );
                                             }
+                                            PolyEvent::Unknown { .. } => {
+                                                ui.colored_label(egui::Color32::RED, "UNKNOWN");
+                                            }
                                         }
 
                                         // Extract data for table columns
@@ -5335,6 +5347,12 @@ impl TradingBehavior<'_> {
                                                 Some(*price),
                                                 Some(*size),
                                                 Some(format!("{:?}", side)),
+                                            ),
+                                            PolyEvent::Unknown { .. } => (
+                                                "unknown".to_string(),
+                                                None,
+                                                None,
+                                                None,
                                             ),
                                         };
 

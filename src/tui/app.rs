@@ -8,12 +8,14 @@ use crate::core::services::Streamer;
 use crate::tui::navigation::Navigation;
 use crate::tui::pages::{MarketsPage, OrdersPage, PortfolioPage, StreamPage, TokensPage};
 use rust_decimal::Decimal;
+use serde_json;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
+use clipboard::{ClipboardContext, ClipboardProvider};
 
 #[derive(Debug, Clone)]
 pub struct TokenActivity {
@@ -69,9 +71,15 @@ pub struct App {
     // Order book scroll state
     pub orderbook_scroll: usize,
 
+    // Event log scroll state
+    pub event_log_scroll: usize,
+
     // Global metrics
     pub total_events_received: usize,
     pub start_time: Instant,
+    
+    // Clipboard notification
+    pub clipboard_notification: Option<(String, Instant)>,
 }
 
 impl App {
@@ -109,8 +117,10 @@ impl App {
             current_asks: Vec::new(),
             current_token_id: None,
             orderbook_scroll: 0,
+            event_log_scroll: 0,
             total_events_received: 0,
             start_time: Instant::now(),
+            clipboard_notification: None,
         }
     }
 
@@ -128,8 +138,8 @@ impl App {
             }
         }
 
-        // Keep only last 100 events
-        if self.event_log.len() > 100 {
+        // Keep only last 1000 events for better scrolling
+        if self.event_log.len() > 1000 {
             self.event_log.remove(0);
         }
 
@@ -244,6 +254,28 @@ impl App {
                     activity.total_volume += price * size;
                 }
             }
+            PolyEvent::Unknown { event_type: _, data } => {
+                // Try to extract asset_id from unknown event for activity tracking
+                if let Some(asset_id) = data.get("asset_id").and_then(|v| v.as_str()) {
+                    if let Ok(mut activities) = self.token_activities.try_write() {
+                        let activity =
+                            activities
+                                .entry(asset_id.to_string())
+                                .or_insert_with(|| TokenActivity {
+                                    token_id: asset_id.to_string(),
+                                    event_count: 0,
+                                    last_bid: None,
+                                    last_ask: None,
+                                    last_update: None,
+                                    total_volume: Decimal::ZERO,
+                                    trade_count: 0,
+                                });
+
+                        activity.event_count += 1;
+                        activity.last_update = Some(Instant::now());
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -284,6 +316,9 @@ impl App {
                 self.current_bids = order_book.get_bids().to_vec();
                 self.current_asks = order_book.get_asks().to_vec();
             }
+            
+            // Reset orderbook scroll to center on mid
+            self.reset_orderbook_scroll();
         }
     }
 
@@ -300,14 +335,74 @@ impl App {
     }
 
     pub fn scroll_orderbook_down(&mut self) {
-        self.orderbook_scroll = self.orderbook_scroll.saturating_add(1);
+        // Calculate the maximum scroll position based on current orderbook data
+        let total_levels = self.current_bids.len() + self.current_asks.len() + 1; // +1 for mid
+        let display_height = 25; // Reasonable estimate for display area
+        
+        if total_levels > display_height {
+            let max_scroll = total_levels.saturating_sub(display_height);
+            if self.orderbook_scroll < max_scroll {
+                self.orderbook_scroll = self.orderbook_scroll.saturating_add(1);
+            }
+        }
+        // If content fits in display, don't allow scrolling
+    }
+    
+    /// Scroll orderbook down with proper bounds checking based on display area
+    pub fn scroll_orderbook_down_bounded(&mut self, total_levels: usize, display_area_height: usize) {
+        let content_height = display_area_height.saturating_sub(3); // Account for borders and header
+        let max_scroll = total_levels.saturating_sub(content_height);
+        if self.orderbook_scroll < max_scroll {
+            self.orderbook_scroll += 1;
+        }
     }
 
     pub fn reset_orderbook_scroll(&mut self) {
-        // Instead of resetting to 0, calculate the scroll position that centers the mid-point
-        // This will be handled by the orderbook rendering logic which already centers on mid
-        // We use a special value to signal that we want to center on mid
-        self.orderbook_scroll = usize::MAX; // Special value to indicate "center on mid"
+        // Center the orderbook view on the mid-point
+        // Calculate based on current orderbook data
+        let total_levels = self.current_bids.len() + self.current_asks.len() + 1; // +1 for mid
+        
+        // Find approximate mid position (asks are first, then mid, then bids)
+        let mid_index = self.current_asks.len(); // Mid is right after asks
+        
+        // Assume a reasonable display height
+        let display_height = 25;
+        
+        if total_levels > display_height {
+            // Center the mid-point in the display
+            let half_display = display_height / 2;
+            if mid_index >= half_display {
+                self.orderbook_scroll = mid_index.saturating_sub(half_display);
+            } else {
+                self.orderbook_scroll = 0;
+            }
+            // Ensure we don't scroll past the end
+            let max_scroll = total_levels.saturating_sub(display_height);
+            self.orderbook_scroll = self.orderbook_scroll.min(max_scroll);
+        } else {
+            // If all content fits, scroll to top
+            self.orderbook_scroll = 0;
+        }
+    }
+    
+    /// Center the orderbook view on the mid-point
+    pub fn center_orderbook(&mut self, total_levels: usize, display_area_height: usize, mid_index: usize) {
+        let content_height = display_area_height.saturating_sub(3); // Account for borders and header
+        if total_levels > content_height {
+            // Center the mid-point in the display
+            let half_display = content_height / 2;
+            if mid_index >= half_display {
+                self.orderbook_scroll = mid_index.saturating_sub(half_display);
+            } else {
+                self.orderbook_scroll = 0;
+            }
+            // Ensure we don't scroll past the end
+            let max_scroll = total_levels.saturating_sub(content_height);
+            self.orderbook_scroll = self.orderbook_scroll.min(max_scroll);
+        } else {
+            // If all content fits, scroll to top
+            self.orderbook_scroll = 0;
+        }
     }
 
     pub fn elapsed_time(&self) -> std::time::Duration {
@@ -322,6 +417,44 @@ impl App {
                 .unwrap_or(0)
         } else {
             0
+        }
+    }
+
+    pub fn scroll_event_log_up(&mut self) {
+        self.event_log_scroll = self.event_log_scroll.saturating_sub(1);
+    }
+
+    pub fn scroll_event_log_down(&mut self) {
+        // Calculate the maximum scroll position based on event log size
+        let display_height = 25; // Reasonable estimate for display area
+        
+        if self.event_log.len() > display_height {
+            let max_scroll = self.event_log.len().saturating_sub(display_height);
+            if self.event_log_scroll < max_scroll {
+                self.event_log_scroll = self.event_log_scroll.saturating_add(1);
+            }
+        }
+        // If content fits in display, don't allow scrolling
+    }
+    
+    /// Scroll event log down with proper bounds checking based on display area
+    pub fn scroll_event_log_down_bounded(&mut self, display_area_height: usize) {
+        let content_height = display_area_height.saturating_sub(2); // Account for borders
+        let max_scroll = self.event_log.len().saturating_sub(content_height);
+        if self.event_log_scroll < max_scroll {
+            self.event_log_scroll += 1;
+        }
+    }
+    
+    /// Center the event log view
+    pub fn center_event_log(&mut self, display_area_height: usize) {
+        let content_height = display_area_height.saturating_sub(2); // Account for borders
+        if self.event_log.len() > content_height {
+            // Center by showing the middle portion of the log
+            self.event_log_scroll = (self.event_log.len().saturating_sub(content_height)) / 2;
+        } else {
+            // If all content fits, scroll to top
+            self.event_log_scroll = 0;
         }
     }
 
@@ -470,6 +603,39 @@ impl App {
         Ok(fetched_orders.len())
     }
 
+    /// Copy token ID to clipboard
+    pub fn copy_token_to_clipboard(&mut self, token_id: &str) -> Result<(), String> {
+        match ClipboardContext::new() {
+            Ok(mut ctx) => {
+                match ctx.set_contents(token_id.to_owned()) {
+                    Ok(_) => {
+                        self.clipboard_notification = Some(("Token ID copied to clipboard!".to_string(), Instant::now()));
+                        Ok(())
+                    }
+                    Err(e) => {
+                        let error_msg = format!("Failed to copy: {}", e);
+                        self.clipboard_notification = Some((error_msg.clone(), Instant::now()));
+                        Err(error_msg)
+                    }
+                }
+            }
+            Err(e) => {
+                let error_msg = format!("Clipboard not available: {}", e);
+                self.clipboard_notification = Some((error_msg.clone(), Instant::now()));
+                Err(error_msg)
+            }
+        }
+    }
+    
+    /// Clear expired clipboard notification
+    pub fn update_clipboard_notification(&mut self) {
+        if let Some((_, timestamp)) = &self.clipboard_notification {
+            if timestamp.elapsed().as_secs() >= 3 {
+                self.clipboard_notification = None;
+            }
+        }
+    }
+
     /// Convert EnhancedOrder to ActiveOrder for portfolio manager compatibility
     fn convert_enhanced_to_active_order(
         enhanced: &EnhancedOrder,
@@ -600,6 +766,108 @@ fn format_event(event: &PolyEvent) -> String {
                 price
             )
         }
-        _ => format!("Other event"),
+        PolyEvent::MyOrder {
+            asset_id,
+            side,
+            price,
+            size,
+            status,
+        } => {
+            let side_str = match side {
+                Side::Buy => "BUY",
+                Side::Sell => "SELL",
+            };
+            format!(
+                "{} MY ORDER {} {} @ ${} ({:?})",
+                &asset_id[..16],
+                side_str,
+                size,
+                price,
+                status
+            )
+        }
+        PolyEvent::MyTrade {
+            asset_id,
+            side,
+            price,
+            size,
+        } => {
+            let side_str = match side {
+                Side::Buy => "BUY", 
+                Side::Sell => "SELL",
+            };
+            format!(
+                "{} MY TRADE {} {} @ ${}",
+                &asset_id[..16],
+                side_str,
+                size,
+                price
+            )
+        }
+        PolyEvent::LastTradePrice {
+            asset_id,
+            price,
+            timestamp,
+        } => {
+            format!(
+                "{} LAST PRICE ${} @ {}",
+                &asset_id[..16],
+                price,
+                timestamp
+            )
+        }
+        PolyEvent::TickSizeChange {
+            asset_id,
+            tick_size,
+        } => {
+            format!(
+                "{} TICK SIZE CHANGE: {}",
+                &asset_id[..16],
+                tick_size
+            )
+        }
+        PolyEvent::Unknown {
+            event_type,
+            data,
+        } => {
+            // Format unknown event with key details
+            let mut details = Vec::new();
+            
+            // Extract common fields if they exist
+            if let Some(asset_id) = data.get("asset_id").and_then(|v| v.as_str()) {
+                details.push(format!("asset: {}", &asset_id[..16.min(asset_id.len())]));
+            }
+            if let Some(market) = data.get("market").and_then(|v| v.as_str()) {
+                details.push(format!("market: {}", &market[..16.min(market.len())]));
+            }
+            if let Some(order_id) = data.get("order_id").and_then(|v| v.as_str()) {
+                details.push(format!("order: {}", &order_id[..16.min(order_id.len())]));
+            }
+            if let Some(trade_id) = data.get("trade_id").and_then(|v| v.as_str()) {
+                details.push(format!("trade: {}", &trade_id[..16.min(trade_id.len())]));
+            }
+            
+            // Show the event with type and key details
+            if details.is_empty() {
+                // If no common fields found, show first few fields
+                if let Some(obj) = data.as_object() {
+                    for (key, value) in obj.iter().take(3) {
+                        let val_str = match value {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Number(n) => n.to_string(),
+                            serde_json::Value::Bool(b) => b.to_string(),
+                            _ => format!("{:?}", value).chars().take(20).collect(),
+                        };
+                        details.push(format!("{}: {}", key, val_str));
+                    }
+                }
+            }
+            
+            format!(
+                "⚠️ UNHANDLED: {} [{}]",
+                event_type,
+                details.join(", ")
+            )
+        }
     }
 }

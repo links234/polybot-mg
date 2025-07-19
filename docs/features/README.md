@@ -50,6 +50,23 @@ Market analysis and filtering capabilities:
 - Analysis result formatting
 - Export and visualization options
 
+## 🤖 Trading Strategies
+
+### [Strategy Enhancement Summary](./strategy-enhancement-summary.md)
+Automated trading strategy improvements:
+- Token ID auto-detection from prefixes
+- Automated order placement with 10-second timer
+- User confirmation system for orders
+- Real-time order status display
+- Progressive discount pricing logic
+
+### [Run Strategy Guide](./run-strategy-guide.md)
+Comprehensive guide for running trading strategies:
+- Strategy execution commands
+- Configuration options
+- Error handling and recovery
+- Performance monitoring
+
 ---
 
 [← Back to Documentation Index](../README.md)

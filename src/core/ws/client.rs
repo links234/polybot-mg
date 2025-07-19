@@ -51,6 +51,8 @@ pub struct WsConfig {
     pub max_reconnection_delay: u64,
     /// Skip hash verification for orderbook updates
     pub skip_hash_verification: bool,
+    /// Silence hash mismatch warnings
+    pub quiet_hash_mismatch: bool,
 }
 
 impl Default for WsConfig {
@@ -62,7 +64,8 @@ impl Default for WsConfig {
             max_reconnection_attempts: 0, // Infinite retries
             initial_reconnection_delay: 1000,
             max_reconnection_delay: 30000,
-            skip_hash_verification: true, // Skip hash verification by default for now
+            skip_hash_verification: true, // TODO: Fix hash calculation to match Polymarket exactly
+            quiet_hash_mismatch: false,
         }
     }
 }

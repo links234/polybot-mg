@@ -459,6 +459,7 @@ impl StreamerWorker {
                                 order_books,
                                 last_trade_prices,
                                 stats,
+                                config,
                             ).await;
                         }
                         Err(e) => {
@@ -481,6 +482,7 @@ impl StreamerWorker {
         order_books: &Arc<DashMap<String, OrderBook>>,
         last_trade_prices: &Arc<DashMap<String, (Decimal, u64)>>,
         stats: &Arc<RwLock<WorkerStats>>,
+        config: &StreamerWorkerConfig,
     ) {
         debug!(
             "Worker {} received message: {:?}",
@@ -494,14 +496,61 @@ impl StreamerWorker {
                     match &event {
                         PolyEvent::Book {
                             asset_id,
+                            market,
+                            timestamp,
                             bids,
                             asks,
-                            ..
+                            hash,
                         } => {
                             let mut book = order_books
                                 .entry(asset_id.clone())
                                 .or_insert_with(|| OrderBook::new(asset_id.clone()));
-                            book.replace_with_snapshot_no_hash(bids.clone(), asks.clone());
+                            
+                            // Get the skip_hash_verification and quiet_hash_mismatch flags from config
+                            let skip_hash = config.ws_config.skip_hash_verification;
+                            let quiet_hash_mismatch = config.ws_config.quiet_hash_mismatch;
+                            
+                            // Apply snapshot based on hash verification setting
+                            if skip_hash {
+                                book.replace_with_snapshot_no_hash(
+                                    market.clone(),
+                                    *timestamp,
+                                    bids.clone(),
+                                    asks.clone(),
+                                );
+                                debug!(
+                                    "Order book snapshot applied (no hash verification) for {}",
+                                    asset_id
+                                );
+                            } else {
+                                if let Err(e) = book.replace_with_snapshot(
+                                    market.clone(),
+                                    *timestamp,
+                                    bids.clone(),
+                                    asks.clone(),
+                                    hash.clone(),
+                                ) {
+                                    if !quiet_hash_mismatch {
+                                        warn!(
+                                            "Failed to apply book snapshot with hash verification: {}",
+                                            e
+                                        );
+                                    }
+                                    // Fallback to no-hash method if verification fails
+                                    book.replace_with_snapshot_no_hash(
+                                        market.clone(),
+                                        *timestamp,
+                                        bids.clone(),
+                                        asks.clone(),
+                                    );
+                                    debug!(
+                                        "Order book snapshot applied (fallback no hash) for {}",
+                                        asset_id
+                                    );
+                                } else {
+                                    debug!("Order book snapshot applied successfully for {}", asset_id);
+                                }
+                            }
                         }
                         PolyEvent::PriceChange {
                             asset_id,

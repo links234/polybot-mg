@@ -22,6 +22,8 @@ pub enum PolyEvent {
     /// Order book snapshot or update
     Book {
         asset_id: String,
+        market: String,
+        timestamp: u64,
         bids: Vec<PriceLevel>,
         asks: Vec<PriceLevel>,
         hash: String,
@@ -66,6 +68,11 @@ pub enum PolyEvent {
         asset_id: String,
         price: Decimal,
         timestamp: u64,
+    },
+    /// Unknown/unhandled event type
+    Unknown {
+        event_type: String,
+        data: serde_json::Value,
     },
 }
 
@@ -129,6 +136,10 @@ pub struct AuthPayload {
 #[derive(Debug, Deserialize)]
 pub struct BookEvent {
     pub asset_id: String,
+    #[serde(default)]
+    pub market: String,
+    #[serde(default, deserialize_with = "deserialize_timestamp_flexible")]
+    pub timestamp: u64,
     #[serde(
         alias = "buys",
         alias = "bids",
@@ -359,6 +370,13 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
 
     match msg.event_type.as_str() {
         "book" => {
+            // Debug log to see what fields are present
+            if let Some(obj) = msg.data.as_object() {
+                let keys: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
+                debug!(available_keys = ?keys, "Keys in book event");
+            }
+            
+            // Parse as BookEvent for processing
             let event: BookEvent = serde_json::from_value(msg.data.clone())
                 .map_err(|e| {
                     error!(error = %e, event_type = "book", raw_data = ?msg.data, "Failed to parse book event");
@@ -372,6 +390,8 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
 
             info!(
                 asset_id = %event.asset_id,
+                market = %event.market,
+                timestamp = event.timestamp,
                 bid_levels = event.bids.len(),
                 ask_levels = event.asks.len(),
                 hash = %event.hash,
@@ -380,6 +400,8 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
 
             Ok(vec![PolyEvent::Book {
                 asset_id: event.asset_id,
+                market: event.market,
+                timestamp: event.timestamp,
                 bids: event.bids,
                 asks: event.asks,
                 hash: event.hash,
@@ -555,8 +577,13 @@ pub fn parse_message(msg: &WsMessage) -> Result<Vec<PolyEvent>, EventError> {
             }])
         }
         _ => {
-            warn!(event_type = %msg.event_type, "Unknown event type");
-            Err(EventError::UnknownEventType(msg.event_type.clone()))
+            warn!(event_type = %msg.event_type, raw_data = ?msg.data, "Unknown event type - creating Unknown event");
+            
+            // Return the unknown event so it can be displayed in the TUI
+            Ok(vec![PolyEvent::Unknown {
+                event_type: msg.event_type.clone(),
+                data: msg.data.clone(),
+            }])
         }
     }
 }

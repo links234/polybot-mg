@@ -76,6 +76,10 @@ pub struct StreamArgs {
     /// Show user order/trade updates
     #[arg(long)]
     pub show_user: bool,
+    
+    /// Debug: directly open orderbook view for the first token
+    #[arg(long)]
+    pub debug_orderbook: bool,
 
     /// Print order book summary every N seconds
     #[arg(long)]
@@ -304,6 +308,15 @@ impl StreamCommand {
         // Create app and configure data access
         let mut app = App::new(streamer_arc.clone());
         app.configure_data_access(data_paths.clone(), host.to_string());
+        
+        // Debug mode: directly open orderbook view
+        if self.args.debug_orderbook {
+            info!("Debug mode: directly opening orderbook view");
+            app.event_log.push("🔧 Debug mode: orderbook view".to_string());
+            
+            // For debugging, we'll wait a moment for data and then select the first token
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
 
         // Create event handler with balanced tick rate for UI responsiveness
         let mut event_handler = EventHandler::new(Duration::from_millis(50));

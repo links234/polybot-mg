@@ -62,7 +62,8 @@ pub fn render_order_book(
         .split(area);
 
     // Title
-    let title = Paragraph::new(format!("Order Book: {}", &token_id[..16]))
+    // Show full token ID for easy copying
+    let title = Paragraph::new(format!("Order Book | Token ID: {}", token_id))
         .style(
             Style::default()
                 .fg(Color::Cyan)
@@ -139,7 +140,17 @@ pub fn render_order_book(
 
     // Apply scrolling and render
     let available_height = chunks[1].height.saturating_sub(3) as usize; // Account for borders and header
-    let start_idx = scroll.min(levels.len().saturating_sub(available_height));
+    
+    // Calculate actual scroll position with bounds checking
+    let actual_scroll = if levels.len() > available_height {
+        // Clamp scroll to valid range
+        scroll.min(levels.len().saturating_sub(available_height))
+    } else {
+        // If all content fits, no scrolling needed
+        0
+    };
+    
+    let start_idx = actual_scroll;
     let end_idx = (start_idx + available_height).min(levels.len());
     let visible_levels = &levels[start_idx..end_idx];
 

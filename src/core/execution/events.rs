@@ -365,6 +365,7 @@ impl From<PolyEvent> for ExecutionEvent {
                 bids,
                 asks,
                 hash,
+                .. // Ignore market and timestamp
             } => MarketEvent::OrderBookSnapshot {
                 asset_id: AssetId::from(asset_id),
                 bids,
@@ -449,6 +450,17 @@ impl From<PolyEvent> for ExecutionEvent {
                     size: Decimal::ZERO, // No size information available
                     side: Side::Buy,     // Default to Buy since we don't know
                     trade_id: Some("last_trade".to_string()),
+                }
+            }
+            PolyEvent::Unknown { .. } => {
+                // Unknown events can't be converted to market events
+                // Return a placeholder event
+                MarketEvent::Trade {
+                    asset_id: AssetId::from("unknown"),
+                    price: Decimal::ZERO,
+                    size: Decimal::ZERO,
+                    side: Side::Buy,
+                    trade_id: Some("unknown".to_string()),
                 }
             }
         };
